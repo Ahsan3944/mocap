@@ -18,6 +18,9 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.NamespacedKey;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.event.player.PlayerQuitEvent;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +32,7 @@ import java.io.IOException;
 
 public final class MocapPaperPlugin extends JavaPlugin implements Listener {
     private final Map<UUID, Location> placementAnchors = new HashMap<>();
+    private NamespacedKey placementToolKey;
     private MocapSceneStore scenes;
     private EquipmentPresetStore equipment;
     private PaperPlaybackManager playbacks;
@@ -39,6 +43,7 @@ public final class MocapPaperPlugin extends JavaPlugin implements Listener {
     @Override
     public void onEnable() {
         try {
+            placementToolKey = new NamespacedKey(this, "formation_placement_tool");
             World rootWorld = Bukkit.getWorlds().isEmpty() ? null : Bukkit.getWorlds().get(0);
             if (rootWorld == null) throw new IOException("Paper has no loaded world; cannot locate mocap_files.");
             scenes = new MocapSceneStore(rootWorld.getWorldFolder().toPath());
@@ -69,8 +74,8 @@ public final class MocapPaperPlugin extends JavaPlugin implements Listener {
         Player player = event.getPlayer();
         if (!player.hasPermission("mocap.admin")) return;
         ItemMeta meta = item.getItemMeta();
-        if (meta == null || meta.getDisplayName() == null
-                || !ChatColor.stripColor(meta.getDisplayName()).equalsIgnoreCase("MoCap Formation Placement Tool")) return;
+        if (meta == null || placementToolKey == null
+                || !meta.getPersistentDataContainer().has(placementToolKey, PersistentDataType.BYTE)) return;
 
         // Anchor at the center of the clicked block's top face.
         Location anchor = event.getClickedBlock().getLocation().add(0.5, 1.0, 0.5);
@@ -81,11 +86,17 @@ public final class MocapPaperPlugin extends JavaPlugin implements Listener {
                 + ChatColor.GREEN + ". Use /mocap paste <recording|.scene> [loop].");
     }
 
+    @EventHandler
+    public void onPlacementToolPlayerQuit(PlayerQuitEvent event) {
+        placementAnchors.remove(event.getPlayer().getUniqueId());
+    }
+
     public void givePlacementTool(Player player) {
         ItemStack tool = new ItemStack(Material.BLAZE_ROD);
         ItemMeta meta = tool.getItemMeta();
         if (meta != null) {
             meta.setDisplayName(ChatColor.GOLD + "MoCap Formation Placement Tool");
+            if (placementToolKey != null) meta.getPersistentDataContainer().set(placementToolKey, PersistentDataType.BYTE, (byte) 1);
             meta.setLore(List.of(
                     ChatColor.GRAY + "Right-click a block to set the placement anchor.",
                     ChatColor.GRAY + "Then use /mocap paste <recording|.scene> [loop]."));
