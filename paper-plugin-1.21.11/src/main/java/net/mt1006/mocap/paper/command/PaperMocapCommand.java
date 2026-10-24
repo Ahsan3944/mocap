@@ -687,43 +687,72 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
 
     private void equipmentCommand(CommandSender sender, String[] args) throws IOException {
         if (args.length < 2 || eq(args[1], "help")) {
-            sender.sendMessage("/mocap customize equipment save <group> <name> | list [group] | delete <group> <name> | apply <id> <group> <name> | apply-element <id> <actor-index> <group> <name> | randomize <id> <group>");
+            sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "       EQUIPMENT PRESETS");
+            sender.sendMessage(ChatColor.WHITE + "/mocap customize equipment save <group-name> <preset-name>");
+            sender.sendMessage(ChatColor.WHITE + "/mocap customize equipment list [<group-name>]");
+            sender.sendMessage(ChatColor.WHITE + "/mocap customize equipment delete <group-name> <preset-name>");
+            sender.sendMessage(ChatColor.WHITE + "/mocap customize equipment apply <playback-id> <group-name> <preset-name>");
+            sender.sendMessage(ChatColor.WHITE + "/mocap customize equipment apply-element <playback-id> <actor-index> <group-name> <preset-name>");
+            sender.sendMessage(ChatColor.WHITE + "/mocap customize equipment randomize <playback-id> <group-name>");
+            sender.sendMessage(ChatColor.YELLOW + "ARGUMENT GUIDE");
+            sender.sendMessage(ChatColor.GRAY + "group-name: preset folder; TAB lists existing groups. Save can create a new group.");
+            sender.sendMessage(ChatColor.GRAY + "preset-name: name saved under that group; TAB lists names already in that group.");
+            sender.sendMessage(ChatColor.GRAY + "playback-id: first number shown by /mocap playback list.");
+            sender.sendMessage(ChatColor.GRAY + "actor-index: one-based actor position (1, 2, 3...) in that playback; TAB lists valid indexes.");
+            sender.sendMessage(ChatColor.GRAY + "save records your current main/off hand plus helmet, chestplate, leggings, and boots.");
+            sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
             return;
         }
         switch (args[1].toLowerCase(Locale.ROOT)) {
             case "save" -> {
-                if (!(sender instanceof Player player)) { sender.sendMessage("Only a player can save their current equipment."); return; }
-                if (args.length < 4) { usage(sender, "/mocap customize equipment save <group> <name>"); return; }
+                if (!(sender instanceof Player player)) { sender.sendMessage(ChatColor.RED + "Only a player can save their current equipment."); return; }
+                if (args.length < 4) { usage(sender, "/mocap customize equipment save <group-name> <preset-name>"); return; }
                 equipment.saveFrom(player, args[2], args[3]);
-                sender.sendMessage("Saved equipment preset " + args[2] + "/" + args[3] + ".");
+                sender.sendMessage(ChatColor.GREEN + "Saved equipment preset " + args[2] + "/" + args[3] + ".");
             }
             case "list" -> {
-                if (args.length < 3) sender.sendMessage("Equipment groups: " + String.join(", ", equipment.listGroups()));
-                else {
+                if (args.length < 3) {
+                    List<String> groups = equipment.listGroups();
+                    sender.sendMessage(groups.isEmpty() ? "No equipment groups exist. Save one with /mocap customize equipment save <group-name> <preset-name>."
+                            : ChatColor.GOLD + "Equipment groups: " + String.join(", ", groups));
+                } else {
                     List<String> presets = equipment.list(args[2]);
-                    sender.sendMessage(presets.isEmpty() ? "No presets in group " + args[2] + "." : "Presets in " + args[2] + ": " + String.join(", ", presets));
+                    sender.sendMessage(presets.isEmpty()
+                            ? "No saved presets in group " + args[2] + ". Use /mocap customize equipment save " + args[2] + " <preset-name>."
+                            : ChatColor.GOLD + "Presets in " + args[2] + ": " + String.join(", ", presets));
                 }
             }
             case "delete" -> {
-                if (args.length < 4) { usage(sender, "/mocap customize equipment delete <group> <name>"); return; }
-                sender.sendMessage(equipment.delete(args[2], args[3]) ? "Equipment preset deleted." : "Equipment preset not found.");
+                if (args.length < 4) { usage(sender, "/mocap customize equipment delete <group-name> <preset-name>"); return; }
+                sender.sendMessage(equipment.delete(args[2], args[3]) ? ChatColor.GREEN + "Deleted equipment preset " + args[2] + "/" + args[3] + "."
+                        : ChatColor.RED + "Equipment preset not found: " + args[2] + "/" + args[3] + ".");
             }
             case "apply" -> {
-                if (args.length < 5) { usage(sender, "/mocap customize equipment apply <id> <group> <name>"); return; }
+                if (args.length < 5) { usage(sender, "/mocap customize equipment apply <playback-id> <group-name> <preset-name>"); return; }
                 var preset = equipment.get(args[3], args[4]);
-                sender.sendMessage(playbacks.applyPreset(args[2], preset) ? "Equipment preset applied." : "Playback ID not found.");
+                sender.sendMessage(playbacks.applyPreset(args[2], preset)
+                        ? ChatColor.GREEN + "Applied " + args[3] + "/" + args[4] + " to playback " + args[2] + "."
+                        : ChatColor.RED + "Playback ID " + args[2] + " was not found. Run /mocap playback list to see active IDs.");
             }
             case "apply_element", "apply-element" -> {
-                if (args.length < 6) { usage(sender, "/mocap customize equipment apply-element <id> <actor-index> <group> <name>"); return; }
-                int index = Integer.parseInt(args[3]);
+                if (args.length < 6) { usage(sender, "/mocap customize equipment apply-element <playback-id> <actor-index> <group-name> <preset-name>"); return; }
+                int index = parseBoundedInteger(args[3], "actor-index", 1, MocapSceneStore.MAX_ELEMENTS);
                 var preset = equipment.get(args[4], args[5]);
-                sender.sendMessage(playbacks.applyPresetToActor(args[2], index, preset) ? "Equipment preset applied to actor " + index + "." : "Playback ID not found or actor index is out of range.");
+                sender.sendMessage(playbacks.applyPresetToActor(args[2], index, preset)
+                        ? ChatColor.GREEN + "Applied " + args[4] + "/" + args[5] + " to actor " + index + " in playback " + args[2] + "."
+                        : ChatColor.RED + "Playback ID was not found or actor-index " + index + " is outside this playback's actor count. Run /mocap playback list and use TAB after apply-element.");
             }
             case "randomize" -> {
-                if (args.length < 4) { usage(sender, "/mocap customize equipment randomize <id> <group>"); return; }
-                sender.sendMessage(playbacks.randomizePresets(args[2], args[3]) ? "Randomized equipment presets across playback actors." : "Playback ID not found.");
+                if (args.length < 4) { usage(sender, "/mocap customize equipment randomize <playback-id> <group-name>"); return; }
+                sender.sendMessage(playbacks.randomizePresets(args[2], args[3])
+                        ? ChatColor.GREEN + "Randomized equipment presets from group " + args[3] + " across playback " + args[2] + "."
+                        : ChatColor.RED + "Playback ID " + args[2] + " was not found. Run /mocap playback list.");
             }
-            default -> sender.sendMessage("Unknown equipment action: " + args[1]);
+            default -> {
+                sender.sendMessage(ChatColor.RED + "Unknown equipment action: " + args[1]);
+                sender.sendMessage("Use /mocap customize equipment help.");
+            }
         }
     }
 
