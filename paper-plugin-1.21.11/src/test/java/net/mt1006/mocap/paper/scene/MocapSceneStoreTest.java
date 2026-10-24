@@ -233,7 +233,7 @@ class MocapSceneStoreTest {
         assertEquals(List.of("battle_group"), store.listFormationGroups());
         assertEquals("battle_group", store.formationGroupScene("battle_group"));
         assertEquals(6, store.readScene("battle_group").getAsJsonArray("subscenes").size());
-        assertEquals(1, store.expand(".battle_group").size() == 6 ? 1 : 0);
+        assertEquals(6, store.expand(".battle_group").size());
         var group = store.formationGroupInfo("battle_group");
         assertEquals("warrior_take", group.get("source_recording").getAsString());
         assertEquals(2, group.get("rows").getAsInt());
@@ -280,6 +280,29 @@ class MocapSceneStoreTest {
         assertEquals(-40.0, anchor.get(0).getAsDouble(), 0.001);
         assertEquals(80.0, anchor.get(1).getAsDouble(), 0.001);
         assertEquals(75.0, anchor.get(2).getAsDouble(), 0.001);
+    }
+
+    @Test
+    void movingOneSceneElementDoesNotMoveOtherActors() throws Exception {
+        MocapSceneStore store = new MocapSceneStore(tempDir);
+        store.createScene("individual_move");
+        Path recordingDir = tempDir.resolve("mocap_files").resolve("recordings");
+        var encoder = new net.mt1006.mocap.paper.recording.MocapRecordingEncoder(10, 64, 20, 0, 0, "Warrior");
+        Files.write(recordingDir.resolve("warrior.mcmocap_rec"), encoder.toByteArray());
+        store.addSceneElement("individual_move", "warrior", 0, null, "default", null);
+        store.addSceneElement("individual_move", "warrior", 0, null, "default", null);
+        store.modifySceneElement("individual_move", "002-warrior", "transformations", new String[]{"offset", "5", "0", "0"});
+
+        store.moveSceneElementTo("individual_move", "002-warrior", new org.bukkit.Location(null, 100, 70, 200));
+
+        var actors = store.expand(".individual_move");
+        assertEquals(2, actors.size());
+        assertEquals(10.0, sceneActorLocation(store, actors.get(0)).getX(), 0.001);
+        assertEquals(64.0, sceneActorLocation(store, actors.get(0)).getY(), 0.001);
+        assertEquals(20.0, sceneActorLocation(store, actors.get(0)).getZ(), 0.001);
+        assertEquals(100.0, sceneActorLocation(store, actors.get(1)).getX(), 0.001);
+        assertEquals(70.0, sceneActorLocation(store, actors.get(1)).getY(), 0.001);
+        assertEquals(200.0, sceneActorLocation(store, actors.get(1)).getZ(), 0.001);
     }
 
     private org.bukkit.Location sceneActorLocation(MocapSceneStore store, MocapSceneStore.ActorSpec actor) throws Exception {
