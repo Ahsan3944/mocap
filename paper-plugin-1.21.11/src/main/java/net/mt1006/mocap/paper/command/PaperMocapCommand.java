@@ -63,15 +63,13 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
                 case "recording" -> recordingCommand(sender, args);
                 case "recordings" -> recordingsCommand(sender, args);
                 case "scene", "scenes" -> sceneCommand(sender, args);
-                case "playing", "playback", "play", "playhere", "list", "stop", "stopall", "stop_all", "freeze", "unfreeze",
-                     "end_freeze", "low_lag", "nametags", "modifiers" -> playbackCommand(sender, args);
+                case "playback" -> playbackCommand(sender, args);
                 case "settings" -> settingsCommand(sender, args);
-                case "customize", "random_names", "random_skins", "set_name", "equipment" -> customizeCommand(sender, args);
-                case "names", "name" -> profileLibraryCommand(sender, args, "names");
-                case "skins", "skin" -> profileLibraryCommand(sender, args, "skins");
+                case "customize" -> customizeCommand(sender, args);
+                case "names" -> profileLibraryCommand(sender, args, "names");
+                case "skins" -> profileLibraryCommand(sender, args, "skins");
                 case "formation" -> formationCommand(sender, args);
                 case "paste" -> pasteCommand(sender, args);
-                case "copy" -> copyCommand(sender, args);
                 default -> {
                     sender.sendMessage("Unknown Mocap command group: " + args[0]);
                     help(sender);
@@ -230,11 +228,6 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage(ChatColor.GREEN + "Created scene ." + MocapSceneStore.normalizeSceneName(args[2]) + ".");
             }
             case "add_to", "addto", "add-to" -> addToScene(sender, args);
-            case "copy" -> {
-                if (args.length < 4) { usage(sender, "/mocap scenes copy <source> <target>"); return; }
-                scenes.copyScene(args[2], args[3]);
-                sender.sendMessage(ChatColor.GREEN + "Copied scene " + args[2] + " to ." + MocapSceneStore.normalizeSceneName(args[3]) + ".");
-            }
             case "rename" -> {
                 if (args.length < 4) { usage(sender, "/mocap scenes rename <old_name> <new_name>"); return; }
                 scenes.renameScene(args[2], args[3]);
@@ -1387,13 +1380,9 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             return List.of();
         }
 
-        if (root.equals("scene") || root.equals("scenes")) return sceneSuggestions(args);
-        if (root.equals("playing") || root.equals("playback")) return playbackSuggestions(args, root.equals("playing"));
+        if (root.equals("scenes")) return sceneSuggestions(args);
+        if (root.equals("playback")) return playbackSuggestions(args);
         if (root.equals("customize")) return customizeSuggestions(args, 1);
-        if (root.equals("equipment")) return customizeSuggestions(args, 0);
-        if (List.of("play", "playhere", "list", "stop", "stopall", "stop_all", "freeze", "unfreeze",
-                "end_freeze", "low_lag", "nametags", "modifiers").contains(root)) return rootPlaybackAliasSuggestions(args);
-        if (List.of("random_names", "random_skins", "set_name").contains(root)) return rootCustomizeAliasSuggestions(args);
         if (root.equals("formation")) {
             if (args.length == 2) return filter(List.of("help", "add", "tool", "paste"), args[1]);
             if (args.length == 3 && args[1].equalsIgnoreCase("add")) return sceneNameSuggestions(args[2]);
@@ -1421,8 +1410,8 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             return List.of();
         }
         if (root.equals("settings")) return settingsSuggestions(args);
-        if (List.of("names", "name").contains(root)) return profileLibrarySuggestions(args, "names");
-        if (List.of("skins", "skin").contains(root)) return profileLibrarySuggestions(args, "skins");
+        if (root.equals("names")) return profileLibrarySuggestions(args, "names");
+        if (root.equals("skins")) return profileLibrarySuggestions(args, "skins");
         return List.of();
     }
 
@@ -1447,7 +1436,7 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
     }
 
     private List<String> sceneSuggestions(String[] args) {
-        if (args.length == 2) return filter(List.of("help", "add", "create", "add_to", "copy", "rename", "remove",
+        if (args.length == 2) return filter(List.of("help", "add", "create", "add_to", "rename", "remove",
                 "remove_from", "modify", "info", "list", "play", "customize", "formation"), args[1]);
         String action = args[1].toLowerCase(Locale.ROOT);
         if (args.length == 3) {
@@ -1619,7 +1608,7 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
     }
 
     private List<String> rootSuggestions(String prefix) {
-        return filter(List.of("help", "info", "recording", "recordings", "scenes", "scene", "playing", "playback", "settings", "customize", "formation", "paste", "copy", "names", "skins", "name", "skin"), prefix);
+        return filter(List.of("help", "info", "recording", "recordings", "scenes", "playback", "settings", "customize", "formation", "paste", "names", "skins"), prefix);
     }
 
     private List<String> playerAndSelectorSuggestions(String prefix) {
@@ -1691,7 +1680,7 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
 
     private List<String> customizeSuggestions(String[] args, int base) {
         int rel = args.length - base;
-        if (rel == 1) return filter(List.of("names", "skins", "name", "equipment"), args[base]);
+        if (rel == 1) return filter(List.of("names", "skins", "equipment"), args[base]);
         String action = args[base].toLowerCase(Locale.ROOT);
 
         if (action.equals("equipment")) {
@@ -1751,13 +1740,9 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             return List.of();
         }
 
-        if (rel == 2 && List.of("names", "skins", "name").contains(action)) {
+        if (rel == 2 && List.of("names", "skins").contains(action)) {
             return sceneNameSuggestions(args[base + 1]);
         }
-        if (rel == 3 && action.equals("name")) {
-            return filter(scenes.sceneElementSuggestions(args[base + 1]), args[base + 2]);
-        }
-        if (rel == 4 && action.equals("name")) return profileNameSuggestions(args[base + 3]);
         if (rel == 3 && List.of("names", "skins").contains(action)) {
             String kind = action;
             List<String> options = new ArrayList<>();
