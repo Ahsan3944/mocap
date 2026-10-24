@@ -1557,7 +1557,11 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             String kind = action;
             List<String> options = new ArrayList<>();
             options.add("auto");
-            options.addAll(filter(profileLibraries.listGroups(kind), args[base + 2]));
+            try {
+                options.addAll(filter(profileLibraries.listGroups(kind), args[base + 2]));
+            } catch (IOException ignored) {
+                // Keep TAB completion available even if the profile library cannot be read.
+            }
             // Keep the legacy direct-paste mode available without mixing it into official-name suggestions.
             options.add("<comma-separated-profile-names>");
             return filter(options, args[base + 2]).stream().distinct().limit(100).toList();
