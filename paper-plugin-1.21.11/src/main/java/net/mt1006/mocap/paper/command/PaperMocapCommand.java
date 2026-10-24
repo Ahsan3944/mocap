@@ -6,6 +6,7 @@ import net.mt1006.mocap.paper.playback.PaperPlaybackManager;
 import net.mt1006.mocap.paper.scene.MocapSceneStore;
 import net.mt1006.mocap.paper.recording.PaperRecordingManager;
 import net.mt1006.mocap.paper.settings.PaperSettingsStore;
+import net.mt1006.mocap.paper.profile.ProfileLibraryStore;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.World;
@@ -30,16 +31,19 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
     private final PaperPlaybackManager playbacks;
     private final PaperRecordingManager recordings;
     private final PaperSettingsStore settings;
+    private final ProfileLibraryStore profileLibraries;
 
     public PaperMocapCommand(MocapPaperPlugin plugin, MocapSceneStore scenes,
                              EquipmentPresetStore equipment, PaperPlaybackManager playbacks,
-                             PaperRecordingManager recordings, PaperSettingsStore settings) {
+                             PaperRecordingManager recordings, PaperSettingsStore settings,
+                             ProfileLibraryStore profileLibraries) {
         this.plugin = plugin;
         this.scenes = scenes;
         this.equipment = equipment;
         this.playbacks = playbacks;
         this.recordings = recordings;
         this.settings = settings;
+        this.profileLibraries = profileLibraries;
     }
 
     @Override
@@ -62,6 +66,8 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
                      "end_freeze", "low_lag", "nametags", "modifiers" -> playbackCommand(sender, args);
                 case "settings" -> settingsCommand(sender, args);
                 case "customize", "random_names", "random_skins", "set_name", "equipment" -> customizeCommand(sender, args);
+                case "names", "name" -> profileLibraryCommand(sender, args, "names");
+                case "skins", "skin" -> profileLibraryCommand(sender, args, "skins");
                 case "formation" -> formationCommand(sender, args);
                 case "copy" -> copyCommand(sender, args);
                 default -> {
