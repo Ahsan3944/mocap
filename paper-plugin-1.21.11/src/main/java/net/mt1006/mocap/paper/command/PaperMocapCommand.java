@@ -972,35 +972,86 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         int rel = args.length - base;
         if (rel == 1) return filter(List.of("names", "skins", "name", "equipment"), args[base]);
         String action = args[base].toLowerCase(Locale.ROOT);
+
         if (action.equals("equipment")) {
-            if (rel == 2) return filter(List.of("help", "save", "list", "delete", "apply", "apply-element", "randomize"), args[base + 1]);
+            if (rel == 2) {
+                return filter(List.of("help", "save", "list", "delete", "apply", "apply-element", "randomize"), args[base + 1]);
+            }
             if (rel < 3) return List.of();
             String sub = args[base + 1].toLowerCase(Locale.ROOT);
-            if (rel == 3 && List.of("apply", "apply-element", "randomize").contains(sub)) return filter(playbackIds(), args[base + 2]);
-            if (rel == 3 && List.of("save", "list", "delete").contains(sub)) {
-                try { return filter(equipment.listGroups(), args[base + 2]); } catch (IOException ignored) { return List.of(); }
+            String prefix = args[args.length - 1];
+
+            // /mocap customize equipment <action> <next argument>
+            if (rel == 3) {
+                return switch (sub) {
+                    case "save" -> equipmentGroupSuggestions(prefix, true);
+                    case "list", "delete" -> equipmentGroupSuggestions(prefix, false);
+                    case "apply", "apply-element", "randomize" -> filter(playbackIds(), prefix);
+                    default -> List.of();
+                };
             }
-            if (rel == 4 && sub.equals("apply")) {
-                try { return filter(equipment.list(args[base + 2]), args[base + 3]); } catch (IOException ignored) { return List.of("<preset-name>"); }
+
+            // After apply-element's playback ID, the next argument is the one-based actor index.
+            if (rel == 4) {
+                return switch (sub) {
+                    case "save" -> equipmentPresetSuggestions(args[base + 2], prefix, true);
+                    case "delete" -> equipmentPresetSuggestions(args[base + 2], prefix, false);
+                    case "apply" -> equipmentGroupSuggestions(prefix, false);
+                    case "apply-element" -> filter(playbacks.actorIndexes(args[base + 2]), prefix);
+                    case "randomize" -> equipmentGroupSuggestions(prefix, false);
+                    default -> List.of();
+                };
             }
-            if (rel == 4 && List.of("save", "delete").contains(sub)) return filter(List.of("<preset-name>"), args[base + 3]);
-            if (rel == 4 && sub.equals("randomize")) {
-                try { return filter(equipment.listGroups(), args[base + 3]); } catch (IOException ignored) { return List.of(); }
+
+            if (rel == 5) {
+                return switch (sub) {
+                    case "apply" -> equipmentPresetSuggestions(args[base + 3], prefix, false);
+                    case "apply-element" -> equipmentGroupSuggestions(prefix, false);
+                    default -> List.of();
+                };
             }
-            if (rel == 5 && sub.equals("apply-element")) return filter(List.of("<actor-index>"), args[base + 4]);
+
             if (rel == 6 && sub.equals("apply-element")) {
-                try { return filter(equipment.listGroups(), args[base + 5]); } catch (IOException ignored) { return List.of(); }
-            }
-            if (rel == 7 && sub.equals("apply-element")) {
-                try { return filter(equipment.list(args[base + 5]), args[base + 6]); } catch (IOException ignored) { return List.of("<preset-name>"); }
+                return equipmentPresetSuggestions(args[base + 4], prefix, false);
             }
             return List.of();
         }
-        if (rel == 2 && List.of("names", "skins", "name").contains(action)) return filter(scenes.listScenes(), args[base + 1]);
-        if (rel == 3 && action.equals("name")) return filter(List.of("<element-index>"), args[base + 2]);
+
+        if (rel == 2 && List.of("names", "skins", "name").contains(action)) {
+            return filter(scenes.listScenes(), args[base + 1]);
+        }
+        if (rel == 3 && action.equals("name")) {
+            return filter(scenes.sceneElementSuggestions(args[base + 1]), args[base + 2]);
+        }
         if (rel == 4 && action.equals("name")) return profileNameSuggestions(args[base + 3]);
         if (rel == 3 && List.of("names", "skins").contains(action)) return profileNameSuggestions(args[base + 2]);
         return List.of();
+    }
+
+    private List<String> equipmentGroupSuggestions(String prefix, boolean allowNewGroup) {
+        try {
+            List<String> matches = new ArrayList<>(filter(equipment.listGroups(), prefix));
+            if (allowNewGroup && (prefix == null || prefix.isBlank())) matches.add("<new-group-name>");
+            if (allowNewGroup && matches.isEmpty() && "<new-group-name>".startsWith(prefix.toLowerCase(Locale.ROOT))) {
+                matches.add("<new-group-name>");
+            }
+            return matches.stream().distinct().toList();
+        } catch (IOException ignored) {
+            return allowNewGroup && (prefix == null || prefix.isBlank()) ? List.of("<new-group-name>") : List.of();
+        }
+    }
+
+    private List<String> equipmentPresetSuggestions(String group, String prefix, boolean allowNewPreset) {
+        try {
+            List<String> matches = new ArrayList<>(filter(equipment.list(group), prefix));
+            if (allowNewPreset && (prefix == null || prefix.isBlank())) matches.add("<preset-name>");
+            if (allowNewPreset && matches.isEmpty() && "<preset-name>".startsWith(prefix.toLowerCase(Locale.ROOT))) {
+                matches.add("<preset-name>");
+            }
+            return matches.stream().distinct().toList();
+        } catch (IOException ignored) {
+            return allowNewPreset && (prefix == null || prefix.isBlank()) ? List.of("<preset-name>") : List.of();
+        }
     }
 
     private static List<String> filter(List<String> values, String prefix) {
