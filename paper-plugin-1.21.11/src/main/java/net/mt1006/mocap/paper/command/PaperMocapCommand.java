@@ -99,9 +99,9 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         switch (args[1].toLowerCase(Locale.ROOT)) {
             case "start" -> {
                 if (args.length > 5) { usage(sender, "/mocap recording start [<player|selector>] [<instant-save-name>] [<custom-session-id>]"); return; }
-                String selector = args.length >= 3 && !args[2].isBlank() ? args[2].trim() : null;
+                String selector = args.length >= 3 && !args[2].isBlank() && !args[2].equals("-") ? args[2].trim() : null;
                 List<Player> targets = resolveRecordingTargets(sender, selector);
-                String instantName = args.length >= 4 && !args[3].isBlank() ? args[3].trim() : null;
+                String instantName = args.length >= 4 && !args[3].isBlank() && !args[3].equals("-") ? args[3].trim() : null;
                 String requestedId = args.length >= 5 && !args[4].isBlank() ? args[4].trim() : null;
                 if (requestedId != null && targets.size() != 1) throw new IOException("A custom session ID is allowed for one selected player only. Use a single player name instead of @a.");
                 int started = 0;
