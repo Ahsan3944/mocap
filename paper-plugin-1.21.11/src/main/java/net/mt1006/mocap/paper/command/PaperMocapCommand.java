@@ -570,6 +570,11 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
     }
 
     private void startPlayback(CommandSender sender, String target, boolean loop, boolean here) throws IOException {
+        startPlayback(sender, target, loop, here, null, null);
+    }
+
+    private void startPlayback(CommandSender sender, String target, boolean loop, boolean here,
+                               String displayNameOverride, String profileNameOverride) throws IOException {
         World world;
         org.bukkit.Location location = null;
         if (here) {
@@ -579,8 +584,11 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         } else {
             world = sender instanceof Player player ? player.getWorld() : defaultWorld();
         }
-        String id = playbacks.start(target, world, loop, location);
-        sender.sendMessage("Mocap playback started: id " + id + " (" + target + ")");
+        String id = playbacks.start(target, world, loop, location, displayNameOverride, profileNameOverride);
+        sender.sendMessage("Mocap playback started: id " + id + " (" + target + ").");
+        if (displayNameOverride != null && !displayNameOverride.isBlank()) {
+            sender.sendMessage(ChatColor.GRAY + "Display player name: " + displayNameOverride);
+        }
     }
 
     private void listRecordings(CommandSender sender) {
