@@ -87,8 +87,15 @@ jobs:
           - Minecraft 1.21.11 Fabric: minecraft-1.21.11-fabric/ (branch fabric-1.21.11, commit $fabric_sha)
           - Paper 1.21.11 plugin: minecraft-1.21.11-paper/paper-plugin-1.21.11/ (branch paper-1.21.11, commit $paper_sha)
 
-          Do not combine these roots into one universal JAR. Each target has its own dependencies, Java toolchain, and build workflow. The older separate Ahsan3944/mocap-paper prototype remains preserved in its own repository and is not the selected release implementation.
+          Do not combine these roots into one universal JAR. Each target has its own dependencies, Java toolchain, and build workflow. Paper is a separate plugin with partial behavior parity and independent verification.
           EOF
+          mkdir -p "$bundle_dir/audit"
+          cp paper-plugin-1.21.11/audit/Original-versus-Our-Feature-Matrix.md "$bundle_dir/audit/"
+          cp paper-plugin-1.21.11/audit/ULTRAOP-MOCAP-FEATURE-SPECIFICATION.md "$bundle_dir/audit/"
+          cp paper-plugin-1.21.11/audit/MOCAP-ORIGINAL-COMMAND-REFERENCE.md "$bundle_dir/audit/"
+          cp paper-plugin-1.21.11/README.md "$bundle_dir/audit/PAPER-README.md"
+          cp paper-plugin-1.21.11/PORT_REPORT.md "$bundle_dir/audit/PAPER-TECHNICAL-VERIFICATION.md"
+          cp VERSION_BRANCHES.md "$bundle_dir/audit/"
           cat > "$bundle_dir/RELEASE_VERIFICATION.md" <<EOF
           # Mocap Release Verification Report
 
