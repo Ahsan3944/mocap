@@ -124,6 +124,7 @@ public final class MocapSceneStore {
                     String childName = getString(el, "name", null);
                     if (childName == null || childName.isBlank()) throw new IOException("Scene element is missing its name.");
                     List<Transform> childTransforms = append(transforms, transformFrom(el.has("transformations") && el.get("transformations").isJsonObject() ? el.getAsJsonObject("transformations") : null));
+                    List<Transform> childPostTransformsWithElementOffset = append(childPostTransforms, globalOffsetTransform(el));
                     // An explicit modifier on this scene element overrides inherited context.
                     // Otherwise carry the parent override through every nested scene level.
                     String elementPlayerName = getString(el, "player_name", null);
@@ -140,7 +141,7 @@ public final class MocapSceneStore {
                     if (childSkin == null) childSkin = skinProfile;
                     int childDelayTicks = inheritedDelayTicks + delayTicks(el.get("time"));
                     if (childDelayTicks > MocapRecordingParser.MAX_TICKS) throw new IOException("Scene delay exceeds the 10-hour safety limit.");
-                    expandInto(childName, childTransforms, childPostTransforms, childPlayerName, childSkin, childDelayTicks, activeScenes, result, depth + 1);
+                    expandInto(childName, childTransforms, childPostTransformsWithElementOffset, childPlayerName, childSkin, childDelayTicks, activeScenes, result, depth + 1);
                     if (result.size() > 500) throw new IOException("Expanded scene exceeds the 500 mannequin Paper safety limit.");
                 }
             } finally {
@@ -690,18 +691,74 @@ public final class MocapSceneStore {
         double dz = target.getZ() - current.getZ();
 
         JsonObject scene = readScene(sceneName);
-        JsonArray old = scene.has("mocap_global_offset") && scene.get("mocap_global_offset").isJsonArray()
-                ? scene.getAsJsonArray("mocap_global_offset") : new JsonArray();
+        addGlobalOffset(scene, dx, dy, dz);
+        writeScene(sceneName, scene);
+        updateFormationGroupAnchor(sceneName, target);
+    }
+
+    /** Move one 1-based top-level scene element (or its nested scene subtree) to the selected target. */
+    public void moveSceneElementTo(String rawSceneName, String rawElementPosition, org.bukkit.Location target) throws IOException {
+        String sceneName = normalizeSceneName(rawSceneName);
+        ElementPosition position = parseElementPosition(rawElementPosition);
+        if (target == null || !finiteCoordinate(target.getX()) || !finiteCoordinate(target.getY()) || !finiteCoordinate(target.getZ())) {
+            throw new IOException("A valid target location must be selected with the placement tool.");
+        }
+        JsonObject scene = readScene(sceneName);
+        JsonArray entries = requireEntries(scene);
+        if (position.index() < 1 || position.index() > entries.size()) throw new IOException("Scene element index is out of range.");
+        JsonElement rawElement = entries.get(position.index() - 1);
+        if (!rawElement.isJsonObject()) throw new IOException("Scene element is malformed.");
+        JsonObject element = rawElement.getAsJsonObject();
+        String name = getString(element, "name", "");
+        if (position.expectedName() != null && !position.expectedName().equals(name)) {
+            throw new IOException("Scene element name changed; refresh suggestions and retry.");
+        }
+
+        List<ActorSpec> actors = expandSceneElement(sceneName, scene, element);
+        if (actors.isEmpty()) throw new IOException("Selected scene element contains no playable recording actors.");
+        ActorSpec first = actors.get(0);
+        MocapRecordingParser.Recording recording = new MocapRecordingParser().parse(first.recordingPath());
+        MocapRecordingParser.Frame frame = recording.frames().get(0);
+        org.bukkit.Location current = new org.bukkit.Location(target.getWorld(), frame.x(), frame.y(), frame.z(), frame.yaw(), frame.pitch());
+        for (Transform transform : first.transforms()) {
+            current = transform.apply(current, recording.startX(), recording.startY(), recording.startZ());
+        }
+        addGlobalOffset(element, target.getX() - current.getX(), target.getY() - current.getY(), target.getZ() - current.getZ());
+        writeScene(sceneName, scene);
+        if (position.index() == 1) updateFormationGroupAnchor(sceneName, target);
+    }
+
+    private List<ActorSpec> expandSceneElement(String sceneName, JsonObject scene, JsonObject element) throws IOException {
+        List<ActorSpec> result = new ArrayList<>();
+        String childName = getString(element, "name", null);
+        if (childName == null || childName.isBlank()) throw new IOException("Scene element is missing its name.");
+        List<Transform> transforms = append(List.of(), transformFrom(
+                element.has("transformations") && element.get("transformations").isJsonObject()
+                        ? element.getAsJsonObject("transformations") : null));
+        List<Transform> postTransforms = append(List.of(), globalOffsetTransform(scene));
+        postTransforms = append(postTransforms, globalOffsetTransform(element));
+        String playerName = getString(element, "player_name", null);
+        String skin = skinProfileFrom(element.get("player_skin"));
+        int delay = delayTicks(element.get("time"));
+        Set<String> activeScenes = new LinkedHashSet<>();
+        activeScenes.add(sceneName.toLowerCase(Locale.ROOT));
+        expandInto(childName, transforms, postTransforms, playerName, skin, delay, activeScenes, result, 1);
+        return List.copyOf(result);
+    }
+
+    private static void addGlobalOffset(JsonObject object, double dx, double dy, double dz) throws IOException {
+        if (!Double.isFinite(dx) || !Double.isFinite(dy) || !Double.isFinite(dz)) throw new IOException("Move offsets must be finite numbers.");
+        JsonArray old = object.has("mocap_global_offset") && object.get("mocap_global_offset").isJsonArray()
+                ? object.getAsJsonArray("mocap_global_offset") : new JsonArray();
         double oldX = old.size() > 0 ? finite(old.get(0)) : 0;
         double oldY = old.size() > 1 ? finite(old.get(1)) : 0;
         double oldZ = old.size() > 2 ? finite(old.get(2)) : 0;
-        JsonArray next = new JsonArray();
         double x = roundFormationOffset(oldX + dx), y = roundFormationOffset(oldY + dy), z = roundFormationOffset(oldZ + dz);
+        if (!finiteCoordinate(x) || !finiteCoordinate(y) || !finiteCoordinate(z)) throw new IOException("Move would put the scene outside supported world-coordinate limits.");
+        JsonArray next = new JsonArray();
         next.add(x); next.add(y); next.add(z);
-        if (Math.abs(x) < 0.0001 && Math.abs(y) < 0.0001 && Math.abs(z) < 0.0001) scene.remove("mocap_global_offset");
-        else scene.add("mocap_global_offset", next);
-        writeScene(sceneName, scene);
-        updateFormationGroupAnchor(sceneName, target);
+        if (Math.abs(x) < 0.0001 && Math.abs(y) < 0.0001 && Math.abs(z) < 0.0001) object.remove("mocap_global_offset");
+        else object.add("mocap_global_offset", next);
     }
 
     public static boolean finiteCoordinate(double value) {
