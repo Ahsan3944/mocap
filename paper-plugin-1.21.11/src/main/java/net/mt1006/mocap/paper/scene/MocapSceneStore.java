@@ -110,6 +110,318 @@ public final class MocapSceneStore {
         }
     }
 
+    public void createScene(String rawName) throws IOException {
+        String name = normalizeSceneName(rawName);
+        Path target = scenePath(name);
+        if (Files.exists(target)) throw new IOException("Scene already exists: ." + name + ".");
+        JsonObject scene = new JsonObject();
+        scene.addProperty("version", 4);
+        scene.add("subscenes", new JsonArray());
+        writeScene(name, scene);
+    }
+
+    public void renameScene(String rawSource, String rawTarget) throws IOException {
+        String source = normalizeSceneName(rawSource);
+        String target = normalizeSceneName(rawTarget);
+        if (source.equalsIgnoreCase(target)) throw new IOException("Source and target scene names must differ.");
+        Path sourcePath = scenePath(source);
+        Path targetPath = scenePath(target);
+        if (!Files.isRegularFile(sourcePath)) throw new IOException("Scene not found: ." + source);
+        if (Files.exists(targetPath)) throw new IOException("Target scene already exists: ." + target + ".");
+        readScene(source); // validate before changing the filesystem
+        Files.move(sourcePath, targetPath);
+    }
+
+    public void removeScene(String rawName) throws IOException {
+        String name = normalizeSceneName(rawName);
+        Path file = scenePath(name);
+        if (!Files.isRegularFile(file)) throw new IOException("Scene not found: ." + name);
+        readScene(name); // don't remove a malformed or unsupported file accidentally
+        Files.delete(file);
+    }
+
+    public void addSceneElement(String rawSceneName, String rawPlayable, double waitOnStart,
+                                String rawPlayerName, String rawSkinSource, String rawSkinPath) throws IOException {
+        String sceneName = normalizeSceneName(rawSceneName);
+        if (!Double.isFinite(waitOnStart) || waitOnStart < 0 || waitOnStart > 36000) {
+            throw new IOException("wait_on_start must be between 0 and 36000 seconds.");
+        }
+        if (rawPlayable == null || rawPlayable.isBlank()) throw new IOException("Recording or scene name is required.");
+        String playable = rawPlayable.trim();
+        if (playable.startsWith(".")) {
+            String nested = normalizeSceneName(playable);
+            if (nested.equalsIgnoreCase(sceneName)) throw new IOException("A scene cannot contain itself.");
+            readScene(nested); // validate existence and format before linking
+        } else {
+            recordingPath(playable);
+            playable = normalizeFileName(playable, ".mcmocap_rec");
+        }
+
+        String playerName = rawPlayerName == null || rawPlayerName.isBlank() || rawPlayerName.equals("-")
+                ? null : rawPlayerName.trim();
+        if (playerName != null && !playerName.matches("[A-Za-z0-9_]{1,16}")) {
+            throw new IOException("Player name must contain 1–16 letters, digits, or underscores.");
+        }
+
+        String skinSource = rawSkinSource == null || rawSkinSource.isBlank() ? "default"
+                : rawSkinSource.trim().toLowerCase(Locale.ROOT);
+        if (skinSource.startsWith("skin_")) skinSource = skinSource.substring(5);
+        if (skinSource.equals("from_player")) skinSource = "from_player";
+        if (skinSource.equals("from_file")) skinSource = "from_file";
+        if (skinSource.equals("from_mineskin")) skinSource = "from_mineskin";
+        if (!List.of("default", "from_player", "from_file", "from_mineskin").contains(skinSource)) {
+            throw new IOException("Skin source must be default, from_player, from_file, or from_mineskin.");
+        }
+        String skinPath = rawSkinPath == null || rawSkinPath.isBlank() || rawSkinPath.equals("-") ? null : rawSkinPath.trim();
+        if (!skinSource.equals("default") && (skinPath == null || skinPath.isBlank())) {
+            throw new IOException("A skin source value is required for " + skinSource + ".");
+        }
+        if (skinSource.equals("from_player") && !skinPath.matches("[A-Za-z0-9_]{1,16}")) {
+            throw new IOException("from_player skin source must be a Minecraft player/profile name.");
+        }
+
+        JsonObject scene = readScene(sceneName);
+        JsonArray entries = requireEntries(scene);
+        if (entries.size() >= MAX_ELEMENTS) throw new IOException("Scene exceeds the 5,000-element safety limit.");
+        JsonObject element = new JsonObject();
+        element.addProperty("name", playable);
+        if (playerName != null) element.addProperty("player_name", playerName);
+        if (waitOnStart > 0) {
+            JsonObject time = new JsonObject();
+            time.addProperty("wait_on_start", waitOnStart);
+            element.add("time", time);
+        }
+        if (!skinSource.equals("default")) {
+            JsonObject skin = new JsonObject();
+            skin.addProperty("skin_source", skinSource);
+            skin.addProperty("skin_path", skinPath);
+            element.add("player_skin", skin);
+        }
+        entries.add(element);
+        writeScene(sceneName, scene);
+    }
+
+    public void removeSceneElement(String rawSceneName, String rawPosition) throws IOException {
+        String sceneName = normalizeSceneName(rawSceneName);
+        ElementPosition position = parseElementPosition(rawPosition);
+        JsonObject scene = readScene(sceneName);
+        JsonArray entries = requireEntries(scene);
+        if (position.index() < 1 || position.index() > entries.size()) {
+            throw new IOException("Scene element index is out of range.");
+        }
+        JsonElement item = entries.get(position.index() - 1);
+        if (!item.isJsonObject()) throw new IOException("Scene element is malformed.");
+        String currentName = getString(item.getAsJsonObject(), "name", "");
+        if (position.expectedName() != null && !position.expectedName().equals(currentName)) {
+            throw new IOException("Scene element name changed; refresh suggestions and retry.");
+        }
+        entries.remove(position.index() - 1);
+        writeScene(sceneName, scene);
+    }
+
+    public void modifySceneElement(String rawSceneName, String rawPosition, String property,
+                                   String[] values) throws IOException {
+        String sceneName = normalizeSceneName(rawSceneName);
+        ElementPosition position = parseElementPosition(rawPosition);
+        JsonObject scene = readScene(sceneName);
+        JsonArray entries = requireEntries(scene);
+        if (position.index() < 1 || position.index() > entries.size()) throw new IOException("Scene element index is out of range.");
+        JsonElement item = entries.get(position.index() - 1);
+        if (!item.isJsonObject()) throw new IOException("Scene element is malformed.");
+        JsonObject element = item.getAsJsonObject();
+        String currentName = getString(element, "name", "");
+        if (position.expectedName() != null && !position.expectedName().equals(currentName)) {
+            throw new IOException("Scene element name changed; refresh suggestions and retry.");
+        }
+        if (values == null) values = new String[0];
+        String key = property == null ? "" : property.toLowerCase(Locale.ROOT);
+        switch (key) {
+            case "subscene_name", "name" -> {
+                requireValues(values, 1, "scenes modify <scene> <element> subscene_name <recording|.scene>");
+                String next = values[0];
+                validatePlayable(next);
+                element.addProperty("name", next);
+            }
+            case "player_name" -> {
+                requireValues(values, 1, "player_name <inherited|blank|set> [<name>]");
+                switch (values[0].toLowerCase(Locale.ROOT)) {
+                    case "inherited", "default" -> element.remove("player_name");
+                    case "blank" -> element.addProperty("player_name", "");
+                    case "set" -> {
+                        requireValues(values, 2, "player_name set <name>");
+                        if (!values[1].matches("[A-Za-z0-9_]{1,16}")) throw new IOException("Player name must contain 1–16 letters, digits, or underscores.");
+                        element.addProperty("player_name", values[1]);
+                    }
+                    default -> throw new IOException("Use player_name inherited, blank, or set <name>.");
+                }
+            }
+            case "time" -> modifyTime(element, values);
+            case "transformations" -> modifyTransformations(element, values);
+            case "player_skin" -> modifySkin(element, values);
+            default -> throw new IOException("Unsupported scene modifier: " + property + ". Supported: subscene_name, player_name, player_skin, time, transformations.");
+        }
+        writeScene(sceneName, scene);
+    }
+
+    public List<String> sceneElementSuggestions(String rawSceneName) {
+        try {
+            JsonObject scene = readScene(rawSceneName);
+            JsonArray entries = requireEntries(scene);
+            List<String> result = new ArrayList<>();
+            for (int i = 0; i < entries.size(); i++) {
+                if (!entries.get(i).isJsonObject()) continue;
+                JsonObject element = entries.get(i).getAsJsonObject();
+                String name = getString(element, "name", "unknown");
+                result.add(String.format(Locale.ROOT, "%03d-%s", i + 1, name));
+            }
+            return result;
+        } catch (IOException | RuntimeException ignored) {
+            return List.of();
+        }
+    }
+
+    public List<String> knownProfiles() {
+        Set<String> profiles = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        for (String sceneName : listScenes()) {
+            try {
+                JsonObject scene = readScene(sceneName);
+                for (JsonElement raw : requireEntries(scene)) {
+                    if (!raw.isJsonObject()) continue;
+                    JsonObject element = raw.getAsJsonObject();
+                    String playerName = getString(element, "player_name", null);
+                    if (playerName != null && playerName.matches("[A-Za-z0-9_]{1,16}")) profiles.add(playerName);
+                    JsonElement skinRaw = element.get("player_skin");
+                    if (skinRaw != null && skinRaw.isJsonObject()) {
+                        String skinSource = getString(skinRaw.getAsJsonObject(), "skin_source", "");
+                        String skinPath = getString(skinRaw.getAsJsonObject(), "skin_path", null);
+                        if ("from_player".equals(skinSource) && skinPath != null && skinPath.matches("[A-Za-z0-9_]{1,16}")) profiles.add(skinPath);
+                    }
+                }
+            } catch (IOException | RuntimeException ignored) {}
+        }
+        return List.copyOf(profiles);
+    }
+
+    private void validatePlayable(String raw) throws IOException {
+        if (raw == null || raw.isBlank()) throw new IOException("Recording or scene name is required.");
+        if (raw.startsWith(".")) readScene(normalizeSceneName(raw));
+        else recordingPath(raw);
+    }
+
+    private static ElementPosition parseElementPosition(String raw) throws IOException {
+        if (raw == null || raw.isBlank()) throw new IOException("Scene element index is required.");
+        int dash = raw.indexOf('-');
+        String indexPart = dash >= 0 ? raw.substring(0, dash) : raw;
+        String expectedName = dash >= 0 ? raw.substring(dash + 1) : null;
+        try {
+            int index = Integer.parseInt(indexPart);
+            return new ElementPosition(index, expectedName);
+        } catch (NumberFormatException e) {
+            throw new IOException("Scene element must be a 1-based index, for example 001-recording_name.", e);
+        }
+    }
+
+    private static void requireValues(String[] values, int minimum, String usage) throws IOException {
+        if (values.length < minimum) throw new IOException("Usage: " + usage);
+    }
+
+    private void modifyTime(JsonObject element, String[] values) throws IOException {
+        requireValues(values, 2, "time <start_delay|wait_on_start|wait_on_end|wait_for_parent_end|loop> <value>");
+        String option = values[0].toLowerCase(Locale.ROOT);
+        JsonObject time = element.has("time") && element.get("time").isJsonObject()
+                ? element.getAsJsonObject("time") : new JsonObject();
+        switch (option) {
+            case "start_delay", "wait_on_start", "wait_on_end" -> {
+                double seconds;
+                try { seconds = Double.parseDouble(values[1]); } catch (NumberFormatException e) { throw new IOException("Time value must be a number.", e); }
+                if (!Double.isFinite(seconds) || seconds < 0 || seconds > 36000) throw new IOException("Time must be between 0 and 36000 seconds.");
+                if (seconds == 0) time.remove(option); else time.addProperty(option, seconds);
+            }
+            case "wait_for_parent_end", "loop" -> {
+                boolean value;
+                if (values[1].equalsIgnoreCase("true") || values[1].equalsIgnoreCase("on")) value = true;
+                else if (values[1].equalsIgnoreCase("false") || values[1].equalsIgnoreCase("off")) value = false;
+                else throw new IOException("Expected true/false (or on/off).");
+                if ((option.equals("wait_for_parent_end") && value) || (option.equals("loop") && !value)) time.remove(option);
+                else time.addProperty(option, value);
+            }
+            default -> throw new IOException("Unknown time modifier: " + option);
+        }
+        if (time.size() == 0) element.remove("time"); else element.add("time", time);
+    }
+
+    private void modifyTransformations(JsonObject element, String[] values) throws IOException {
+        requireValues(values, 1, "transformations <offset|rotation|mirror|scale> ...");
+        String option = values[0].toLowerCase(Locale.ROOT);
+        JsonObject transform = element.has("transformations") && element.get("transformations").isJsonObject()
+                ? element.getAsJsonObject("transformations") : new JsonObject();
+        switch (option) {
+            case "offset" -> {
+                requireValues(values, 4, "transformations offset <x> <y> <z>");
+                double x = parseFinite(values[1], "x"), y = parseFinite(values[2], "y"), z = parseFinite(values[3], "z");
+                if (x == 0 && y == 0 && z == 0) transform.remove("offset");
+                else {
+                    JsonArray offset = new JsonArray(); offset.add(x); offset.add(y); offset.add(z); transform.add("offset", offset);
+                }
+            }
+            case "rotation" -> {
+                requireValues(values, 2, "transformations rotation <degrees>");
+                double degree = parseFinite(values[1], "degrees");
+                if (degree == 0) transform.remove("rotation"); else transform.addProperty("rotation", degree);
+            }
+            case "mirror" -> {
+                requireValues(values, 2, "transformations mirror <none|x|z|xz>");
+                String mirror = values[1].toLowerCase(Locale.ROOT);
+                if (!List.of("none", "x", "z", "xz").contains(mirror)) throw new IOException("Mirror must be none, x, z, or xz.");
+                if (mirror.equals("none")) transform.remove("mirror"); else transform.addProperty("mirror", mirror);
+            }
+            case "scale" -> {
+                requireValues(values, 3, "transformations scale <of_player|of_scene> <scale>");
+                String kind = values[1].toLowerCase(Locale.ROOT);
+                if (!List.of("of_player", "of_scene").contains(kind)) throw new IOException("Scale must be of_player or of_scene.");
+                double scale = parseFinite(values[2], "scale");
+                if (scale < 0 || scale > 100) throw new IOException("Scale must be between 0 and 100.");
+                JsonObject scaleObj = transform.has("scale") && transform.get("scale").isJsonObject()
+                        ? transform.getAsJsonObject("scale") : new JsonObject();
+                String field = kind.equals("of_scene") ? "scene_scale" : "player_scale";
+                if (scale == 1) scaleObj.remove(field); else scaleObj.addProperty(field, scale);
+                if (scaleObj.size() == 0) transform.remove("scale"); else transform.add("scale", scaleObj);
+            }
+            default -> throw new IOException("Unknown transformation modifier: " + option);
+        }
+        if (transform.size() == 0) element.remove("transformations"); else element.add("transformations", transform);
+    }
+
+    private void modifySkin(JsonObject element, String[] values) throws IOException {
+        requireValues(values, 1, "player_skin <default|from_player|from_file|from_mineskin> [<path>]");
+        String source = values[0].toLowerCase(Locale.ROOT);
+        if (source.equals("default")) {
+            element.remove("player_skin");
+            return;
+        }
+        if (source.startsWith("skin_")) source = source.substring(5);
+        requireValues(values, 2, "player_skin <from_player|from_file|from_mineskin> <path>");
+        if (!List.of("from_player", "from_file", "from_mineskin").contains(source)) {
+            throw new IOException("Skin source must be default, from_player, from_file, or from_mineskin.");
+        }
+        String path = values[1];
+        if (source.equals("from_player") && !path.matches("[A-Za-z0-9_]{1,16}")) throw new IOException("from_player requires a Minecraft profile name.");
+        JsonObject skin = new JsonObject();
+        skin.addProperty("skin_source", source);
+        skin.addProperty("skin_path", path);
+        element.add("player_skin", skin);
+    }
+
+    private static double parseFinite(String raw, String label) throws IOException {
+        try {
+            double value = Double.parseDouble(raw);
+            if (!Double.isFinite(value)) throw new IOException(label + " must be a finite number.");
+            return value;
+        } catch (NumberFormatException e) { throw new IOException(label + " must be a number.", e); }
+    }
+
+    private record ElementPosition(int index, String expectedName) {}
+
     public void assignRandomProfiles(String sceneName, List<String> rawNames, boolean skins) throws IOException {
         List<String> names = uniqueNames(rawNames, skins ? 256 : 1000);
         if (names.isEmpty()) throw new IOException("Provide at least one valid profile/name, separated by commas.");
