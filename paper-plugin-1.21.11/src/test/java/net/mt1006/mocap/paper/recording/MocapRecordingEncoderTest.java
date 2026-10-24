@@ -8,14 +8,15 @@ import static org.junit.jupiter.api.Assertions.*;
 class MocapRecordingEncoderTest {
     @Test
     void writesLegacyRecordingThatThePlaybackParserCanRead() throws Exception {
-        MocapRecordingEncoder encoder = new MocapRecordingEncoder(10.0, 64.0, 10.0, 37.0f, -12.0f);
+        MocapRecordingEncoder encoder = new MocapRecordingEncoder(10.0, 64.0, 10.0, 37.0f, -12.0f, "Alex");
         encoder.nextTick();
         encoder.movement(1.25, 0.5, -3.0, -5.0f, 90.0f, true);
         encoder.pose(6); // CROUCHING
 
         MocapRecordingParser.Recording recording = new MocapRecordingParser().parseBytes(encoder.toByteArray());
 
-        assertEquals(1, recording.formatVersion());
+        assertEquals(3, recording.formatVersion());
+        assertEquals("Alex", recording.recordedProfileName());
         assertEquals(1, recording.durationTicks());
         assertTrue(recording.frames().size() >= 2);
         var start = recording.frames().get(0);
