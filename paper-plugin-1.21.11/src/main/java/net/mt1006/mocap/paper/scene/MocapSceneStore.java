@@ -171,10 +171,26 @@ public final class MocapSceneStore {
         if (source.equalsIgnoreCase(target)) throw new IOException("Source and target scene names must differ.");
         Path sourcePath = scenePath(source);
         Path targetPath = scenePath(target);
+        Path sourceGroupPath = formationPath(source);
+        Path targetGroupPath = formationPath(target);
         if (!Files.isRegularFile(sourcePath)) throw new IOException("Scene not found: ." + source);
         if (Files.exists(targetPath)) throw new IOException("Target scene already exists: ." + target + ".");
+        if (Files.exists(sourceGroupPath) && Files.exists(targetGroupPath)) throw new IOException("Target Formation Group already exists: " + target + ".");
         readScene(source); // validate before changing the filesystem
         Files.move(sourcePath, targetPath);
+        if (Files.isRegularFile(sourceGroupPath)) {
+            try {
+                JsonObject group = readFormationGroup(source);
+                group.addProperty("group_name", target);
+                group.addProperty("scene_name", target);
+                writeFormationGroup(target, group, false);
+                Files.delete(sourceGroupPath);
+            } catch (IOException e) {
+                try { Files.move(targetPath, sourcePath); } catch (IOException suppressed) { e.addSuppressed(suppressed); }
+                try { Files.deleteIfExists(targetGroupPath); } catch (IOException suppressed) { e.addSuppressed(suppressed); }
+                throw e;
+            }
+        }
     }
 
     public void removeScene(String rawName) throws IOException {
@@ -820,8 +836,22 @@ public final class MocapSceneStore {
         String dst = normalizeSceneName(target);
         if (src.equalsIgnoreCase(dst)) throw new IOException("Source and target scene names must differ.");
         if (Files.exists(scenePath(dst))) throw new IOException("Target scene already exists; refusing to overwrite it.");
+        if (Files.exists(formationPath(dst))) throw new IOException("Target Formation Group already exists: " + dst + ".");
         JsonObject scene = readScene(src);
         writeScene(dst, scene);
+        Path sourceGroupPath = formationPath(src);
+        if (Files.isRegularFile(sourceGroupPath)) {
+            try {
+                JsonObject group = readFormationGroup(src);
+                group.addProperty("group_name", dst);
+                group.addProperty("scene_name", dst);
+                writeFormationGroup(dst, group, false);
+            } catch (IOException e) {
+                try { Files.deleteIfExists(scenePath(dst)); } catch (IOException suppressed) { e.addSuppressed(suppressed); }
+                try { Files.deleteIfExists(formationPath(dst)); } catch (IOException suppressed) { e.addSuppressed(suppressed); }
+                throw e;
+            }
+        }
     }
 
     public JsonObject readScene(String rawName) throws IOException {
