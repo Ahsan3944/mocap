@@ -788,12 +788,15 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             String group = first;
             String scope = tail.size() >= 3 ? tail.get(1) : null;
             if (scope != null && scope.equalsIgnoreCase("auto")) scope = null;
-            if (scope != null && scope.contains("/")) {
+            if (scope != null && scope.startsWith("subgroup:")) {
+                scopeForMessage = scope.substring("subgroup:".length());
+                values = profileLibraries.values(kind, group, scopeForMessage);
+            } else if (scope != null && scope.contains("/")) {
                 String[] parts = scope.split("/", 2);
                 if (!parts[0].equalsIgnoreCase(group)) throw new IOException("Subgroup scope must stay inside the selected group: " + group + ".");
                 scopeForMessage = parts[1];
                 values = profileLibraries.values(kind, parts[0], parts[1]);
-            } else if (scope != null && profileLibraries.listSubgroups(kind, group).stream().anyMatch(s -> s.equalsIgnoreCase(scope))) {
+            } else if (scope != null && profileLibraries.listSubgroups(kind, group).contains(scope)) {
                 scopeForMessage = scope;
                 values = profileLibraries.values(kind, group, scope);
             } else {
