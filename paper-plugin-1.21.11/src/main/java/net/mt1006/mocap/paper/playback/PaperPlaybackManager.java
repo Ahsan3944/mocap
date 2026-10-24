@@ -87,6 +87,9 @@ public final class PaperPlaybackManager {
                         anchorX, anchorY, anchorZ);
                 Mannequin mannequin = world.spawn(initial, Mannequin.class, CreatureSpawnEvent.SpawnReason.CUSTOM, false, m -> {
                     m.setCustomName(displayName);
+                    // Mannequins show a default "NPC" description below the custom name when omitted.
+                    // Explicitly clear it so only the recorded/assigned player name is visible.
+                    m.setDescription(null);
                     m.setCustomNameVisible(preparedActor.spec().delayTicks() == 0);
                     m.setInvisible(preparedActor.spec().delayTicks() > 0);
                     m.setPersistent(false);
