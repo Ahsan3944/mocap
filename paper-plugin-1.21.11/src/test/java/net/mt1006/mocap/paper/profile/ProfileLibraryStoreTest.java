@@ -59,6 +59,24 @@ class ProfileLibraryStoreTest {
     }
 
     @Test
+    void importsCommaAndNewlineSeparatedListsAndSupportsAppend() throws Exception {
+        Path imports = tempDir.resolve("profile-libraries").resolve("imports");
+        java.nio.file.Files.createDirectories(imports);
+        java.nio.file.Files.writeString(imports.resolve("roster.txt"), "Steve\\nAlex,UltraOP\\nBuilder");
+
+        ProfileLibraryStore store = new ProfileLibraryStore(tempDir);
+        var saved = store.importFile("names", "soldiers", "main", "roster.txt", false);
+        assertEquals(4, saved.size());
+        assertEquals(List.of("Steve", "Alex", "UltraOP", "Builder"), store.values("names", "soldiers", "main"));
+
+        java.nio.file.Files.writeString(imports.resolve("more.txt"), "Alex,NewPlayer");
+        var appended = store.importFile("names", "soldiers", "main", "more.txt", true);
+        assertEquals(List.of("NewPlayer"), appended.stream().map(ProfileLibraryStore.Entry::value).toList());
+        assertEquals(5, store.values("names", "soldiers", "main").size());
+        assertThrows(IOException.class, () -> store.importFile("names", "soldiers", "main", "../roster.txt", false));
+    }
+
+    @Test
     void acceptsLargeBulkListsUpToThreeThousandUniqueNames() throws Exception {
         ProfileLibraryStore store = new ProfileLibraryStore(tempDir);
         java.util.ArrayList<String> names = new java.util.ArrayList<>();
