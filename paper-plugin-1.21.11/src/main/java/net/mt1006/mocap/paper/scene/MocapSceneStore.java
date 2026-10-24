@@ -37,6 +37,29 @@ public final class MocapSceneStore {
         return file;
     }
 
+    public void copyRecording(String rawSource, String rawTarget) throws IOException {
+        Path source = recordingPath(rawSource);
+        String targetName = normalizeFileName(rawTarget, ".mcmocap_rec");
+        Path target = recordingDir.resolve(targetName + ".mcmocap_rec").normalize();
+        ensureWithin(recordingDir, target);
+        if (Files.exists(target)) throw new IOException("Target recording already exists: " + targetName + ".");
+        Files.copy(source, target);
+    }
+
+    public void renameRecording(String rawSource, String rawTarget) throws IOException {
+        Path source = recordingPath(rawSource);
+        String targetName = normalizeFileName(rawTarget, ".mcmocap_rec");
+        Path target = recordingDir.resolve(targetName + ".mcmocap_rec").normalize();
+        ensureWithin(recordingDir, target);
+        if (Files.exists(target)) throw new IOException("Target recording already exists: " + targetName + ".");
+        Files.move(source, target);
+    }
+
+    public void removeRecording(String rawName) throws IOException {
+        Path file = recordingPath(rawName);
+        Files.delete(file);
+    }
+
     public Path scenePath(String raw) throws IOException {
         String name = normalizeSceneName(raw);
         Path file = sceneDir.resolve(name + ".mcmocap_scene").normalize();
