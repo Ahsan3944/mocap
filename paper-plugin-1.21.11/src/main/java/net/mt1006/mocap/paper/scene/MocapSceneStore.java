@@ -538,22 +538,36 @@ public final class MocapSceneStore {
         writeScene(normalizeSceneName(sceneName), scene);
     }
 
+    /** Backwards-compatible equal-spacing overload. */
     public void addFormation(String sceneName, String recordingName, int rows, int columns, double spacing) throws IOException {
+        addFormation(sceneName, recordingName, rows, columns, spacing, spacing);
+    }
+
+    /**
+     * Builds a formation with independent gaps between columns (side-to-side) and rows (front-to-back).
+     * The source recording anchors at row 1 / column 1 (zero offset). Columns grow to the character's
+     * right and rows grow behind the character relative to the recording's starting yaw.
+     */
+    public void addFormation(String sceneName, String recordingName, int rows, int columns,
+                             double columnSpacing, double rowSpacing) throws IOException {
         if (rows < 1 || columns < 1 || (long) rows * columns > MAX_FORMATION_ADDITIONS) {
             throw new IOException("Formation must contain between 1 and " + MAX_FORMATION_ADDITIONS + " actors.");
         }
-        if (!Double.isFinite(spacing) || spacing < 0.5 || spacing > 128.0) throw new IOException("Spacing must be between 0.5 and 128.");
+        if (!Double.isFinite(columnSpacing) || columnSpacing < 0.0 || columnSpacing > 128.0) {
+            throw new IOException("Column spacing must be between 0 and 128 blocks.");
+        }
+        if (!Double.isFinite(rowSpacing) || rowSpacing < 0.0 || rowSpacing > 128.0) {
+            throw new IOException("Row spacing must be between 0 and 128 blocks.");
+        }
         Path recording = recordingPath(recordingName);
         MocapRecordingParser.Recording source = new MocapRecordingParser().parse(recording);
         String baseName = normalizeFileName(recordingName, ".mcmocap_rec");
         JsonObject scene = readScene(normalizeSceneName(sceneName));
         JsonArray entries = requireEntries(scene);
-        if ((long) entries.size() + (long) rows * columns > MAX_ELEMENTS) throw new IOException("Formation would exceed the 5,000-element scene limit.");
+        if ((long) entries.size() + (long) rows * columns > MAX_ELEMENTS) {
+            throw new IOException("Formation would exceed the 5,000-element scene limit.");
+        }
 
-        // Anchor actor is always row 1 / column 1 at zero offset. Columns grow to the
-        // character's right; each later row grows behind the character, aligned to the
-        // facing direction recorded in the source recording. This avoids centering the
-        // copied character in the grid and keeps the original actor at the left/front corner.
         double yaw = Math.toRadians(source.startYaw());
         double rightX = -Math.cos(yaw);
         double rightZ = -Math.sin(yaw);
@@ -561,13 +575,15 @@ public final class MocapSceneStore {
         double behindZ = -Math.cos(yaw);
         for (int row = 0; row < rows; row++) {
             for (int col = 0; col < columns; col++) {
-                double x = col * spacing * rightX + row * spacing * behindX;
-                double z = col * spacing * rightZ + row * spacing * behindZ;
+                double x = col * columnSpacing * rightX + row * rowSpacing * behindX;
+                double z = col * columnSpacing * rightZ + row * rowSpacing * behindZ;
                 JsonObject element = new JsonObject();
                 element.addProperty("name", baseName);
                 JsonObject transformations = new JsonObject();
                 JsonArray offset = new JsonArray();
-                offset.add(roundFormationOffset(x)); offset.add(0.0); offset.add(roundFormationOffset(z));
+                offset.add(roundFormationOffset(x));
+                offset.add(0.0);
+                offset.add(roundFormationOffset(z));
                 transformations.add("offset", offset);
                 element.add("transformations", transformations);
                 entries.add(element);
