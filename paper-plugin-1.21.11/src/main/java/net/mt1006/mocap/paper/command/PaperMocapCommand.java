@@ -1573,50 +1573,6 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         return List.of();
     }
 
-    private List<String> rootPlaybackAliasSuggestions(String[] args) {
-        String action = args[0].toLowerCase(Locale.ROOT);
-        if (args.length == 1) return List.of();
-        if (args.length == 2) {
-            return switch (action) {
-                case "play", "playhere" -> playableNameSuggestions(args[1]);
-                case "stop", "freeze", "unfreeze", "end_freeze", "low_lag" -> playbackIdSuggestions(args[1]);
-                case "nametags" -> {
-                    List<String> values = new ArrayList<>(filter(List.of("hide", "show"), args[1]));
-                    values.addAll(playbackIdSuggestions(args[1]));
-                    yield values.stream().distinct().limit(100).toList();
-                }
-                case "stop_all" -> filter(List.of("including_others", "excluding_others"), args[1]);
-                case "stopall", "list" -> List.of();
-                case "modifiers" -> filter(List.of("help", "list", "reset", "set", "add_to"), args[1]);
-                default -> List.of();
-            };
-        }
-        if (args.length == 3 && action.equals("low_lag")) return filter(List.of("on", "off"), args[2]);
-        if (args.length == 3 && action.equals("nametags")) {
-            if (args[1].equalsIgnoreCase("hide") || args[1].equalsIgnoreCase("show")) return playbackIdSuggestions(args[2]);
-            return filter(List.of("hide", "show"), args[2]);
-        }
-        if (action.equals("modifiers") && args.length == 3 && args[1].equalsIgnoreCase("add_to")) return filter(scenes.listScenes(), args[2]);
-        if (action.equals("modifiers") && args.length == 4 && args[1].equalsIgnoreCase("add_to")) return combineAndFilter(scenes.listRecordings(), scenes.listScenes(), args[3]);
-        return List.of();
-    }
-
-    private List<String> rootCustomizeAliasSuggestions(String[] args) {
-        String action = args[0].toLowerCase(Locale.ROOT);
-        if (args.length == 2) return sceneNameSuggestions(args[1]);
-        if (action.equals("set_name")) {
-            if (args.length == 3) return filter(scenes.sceneElementSuggestions(args[1]), args[2]);
-            if (args.length == 4) return profileNameSuggestions(args[3]);
-            return List.of();
-        }
-        if (args.length == 3) {
-            List<String> values = new ArrayList<>(filter(List.of("auto", "random", "recorded"), args[2]));
-            values.addAll(profileNameSuggestions(args[2]));
-            return values.stream().distinct().limit(100).toList();
-        }
-        return List.of();
-    }
-
     private List<String> playbackSuggestions(String[] args) {
         if (args.length == 2) return filter(List.of("help", "start", "play", "list", "stop", "stopall", "stop_all",
                 "freeze", "unfreeze", "end-freeze", "low-lag", "nametags", "playhere", "modifiers"), args[1]);
@@ -1627,9 +1583,6 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             List<String> values = new ArrayList<>(filter(List.of("hide", "show"), args[2]));
             values.addAll(playbackIdSuggestions(args[2]));
             return values.stream().distinct().limit(100).toList();
-        }
-        if (args.length == 3 && action.equals("start") || args.length == 3 && action.equals("play")) {
-            return filter(List.of("loop", "skin_from_player", "<player-name>"), args[2]);
         }
         if (args.length == 4 && (action.equals("start") || action.equals("play"))) {
             if (args[3].equalsIgnoreCase("skin_from_player") || args[3].equalsIgnoreCase("from_player")) {
