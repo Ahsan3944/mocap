@@ -494,7 +494,7 @@ public final class MocapSceneStore {
     private record ElementPosition(int index, String expectedName) {}
 
     public void assignRandomProfiles(String sceneName, List<String> rawNames, boolean skins) throws IOException {
-        List<String> names = uniqueNames(rawNames, skins ? 256 : 1000);
+        List<String> names = uniqueNames(rawNames, 3000);
         if (names.isEmpty()) throw new IOException("Provide at least one valid profile/name, separated by commas.");
         JsonObject scene = readScene(normalizeSceneName(sceneName));
         JsonArray entries = requireEntries(scene);
@@ -543,26 +543,42 @@ public final class MocapSceneStore {
             throw new IOException("Formation must contain between 1 and " + MAX_FORMATION_ADDITIONS + " actors.");
         }
         if (!Double.isFinite(spacing) || spacing < 0.5 || spacing > 128.0) throw new IOException("Spacing must be between 0.5 and 128.");
-        recordingPath(recordingName); // validate the recording exists first
+        Path recording = recordingPath(recordingName);
+        MocapRecordingParser.Recording source = new MocapRecordingParser().parse(recording);
         String baseName = normalizeFileName(recordingName, ".mcmocap_rec");
         JsonObject scene = readScene(normalizeSceneName(sceneName));
         JsonArray entries = requireEntries(scene);
         if ((long) entries.size() + (long) rows * columns > MAX_ELEMENTS) throw new IOException("Formation would exceed the 5,000-element scene limit.");
+
+        // Anchor actor is always row 1 / column 1 at zero offset. Columns grow to the
+        // character's right; each later row grows behind the character, aligned to the
+        // facing direction recorded in the source recording. This avoids centering the
+        // copied character in the grid and keeps the original actor at the left/front corner.
+        double yaw = Math.toRadians(source.startYaw());
+        double rightX = -Math.cos(yaw);
+        double rightZ = -Math.sin(yaw);
+        double behindX = Math.sin(yaw);
+        double behindZ = -Math.cos(yaw);
         for (int row = 0; row < rows; row++) {
             for (int col = 0; col < columns; col++) {
-                double x = (col - (columns - 1) / 2.0) * spacing;
-                double z = (row - (rows - 1) / 2.0) * spacing;
+                double x = col * spacing * rightX + row * spacing * behindX;
+                double z = col * spacing * rightZ + row * spacing * behindZ;
                 JsonObject element = new JsonObject();
                 element.addProperty("name", baseName);
                 JsonObject transformations = new JsonObject();
                 JsonArray offset = new JsonArray();
-                offset.add(x); offset.add(0.0); offset.add(z);
+                offset.add(roundFormationOffset(x)); offset.add(0.0); offset.add(roundFormationOffset(z));
                 transformations.add("offset", offset);
                 element.add("transformations", transformations);
                 entries.add(element);
             }
         }
         writeScene(normalizeSceneName(sceneName), scene);
+    }
+
+    private static double roundFormationOffset(double value) {
+        if (Math.abs(value) < 1.0e-9) return 0.0;
+        return Math.round(value * 1_000_000.0) / 1_000_000.0;
     }
 
     public void copyScene(String source, String target) throws IOException {
