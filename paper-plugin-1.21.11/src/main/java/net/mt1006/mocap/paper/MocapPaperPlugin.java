@@ -16,6 +16,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.meta.ItemMeta;
 import java.util.HashMap;
 import java.util.List;
@@ -61,6 +62,7 @@ public final class MocapPaperPlugin extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onPlacementToolUse(PlayerInteractEvent event) {
+        if (event.getHand() != EquipmentSlot.HAND) return;
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK || event.getClickedBlock() == null) return;
         ItemStack item = event.getItem();
         if (item == null || item.getType() != Material.BLAZE_ROD) return;
