@@ -26,8 +26,10 @@ import java.util.Locale;
 import java.util.UUID;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class ProfileUtils
 {
@@ -35,12 +37,14 @@ public class ProfileUtils
 	private static final Cache<String, Profile> cache = new Cache<>("profiles - case sensitive", 4096);
 	private static final Cache<String, Profile> cacheInsensitive = new Cache<>("profiles - case insensitive", 4096);
 	private static final Set<String> prefetchInFlight = ConcurrentHashMap.newKeySet();
-	private static final ExecutorService prefetchExecutor = Executors.newFixedThreadPool(2, runnable ->
+	private static final int MAX_QUEUED_PROFILE_PREFETCHES = 256;
+	private static final ThreadPoolExecutor prefetchExecutor = new ThreadPoolExecutor(
+			2, 2, 0L, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(MAX_QUEUED_PROFILE_PREFETCHES), runnable ->
 	{
 		Thread thread = new Thread(runnable, "Mocap profile prefetch");
 		thread.setDaemon(true);
 		return thread;
-	});
+	}, new ThreadPoolExecutor.AbortPolicy());
 
 	public static Profile getProfile(MinecraftServer server, MocapPlayerNameHandling mode, String name, boolean withSkin)
 	{
@@ -80,12 +84,20 @@ public class ProfileUtils
 		if (getFromCache(MocapPlayerNameHandling.IGNORE_AND_REPLACE_CASING, name, true) != null) { return; }
 		String key = name.toLowerCase(Locale.ROOT);
 		if (!prefetchInFlight.add(key)) { return; }
-		prefetchExecutor.execute(() ->
+		try
 		{
-			try { getProfile(server, MocapPlayerNameHandling.IGNORE_AND_REPLACE_CASING, name, true); }
-			catch (RuntimeException e) { net.mt1006.mocap.MocapMod.LOGGER.debug("Background profile prefetch failed for {}", name, e); }
-			finally { prefetchInFlight.remove(key); }
-		});
+			prefetchExecutor.execute(() ->
+			{
+				try { getProfile(server, MocapPlayerNameHandling.IGNORE_AND_REPLACE_CASING, name, true); }
+				catch (RuntimeException e) { net.mt1006.mocap.MocapMod.LOGGER.debug("Background profile prefetch failed for {}", name, e); }
+				finally { prefetchInFlight.remove(key); }
+			});
+		}
+		catch (RejectedExecutionException e)
+		{
+			prefetchInFlight.remove(key);
+			net.mt1006.mocap.MocapMod.LOGGER.debug("Profile prefetch queue is full; deferring lookup for {}", name);
+		}
 	}
 
 	public static GameProfile createGameProfile(String name, @Nullable Property skin, @Nullable Property customSkin)
