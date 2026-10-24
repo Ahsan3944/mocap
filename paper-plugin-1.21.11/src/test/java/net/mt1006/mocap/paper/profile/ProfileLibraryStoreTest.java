@@ -44,7 +44,7 @@ class ProfileLibraryStoreTest {
         store.save("names", "squad", "two", List.of("UltraOP"));
         store.save("names", "squad", "one", List.of("Builder"));
         assertEquals(List.of("Builder"), store.values("names", "squad", "one"));
-        assertEquals(List.of("Steve", "Alex", "Builder", "UltraOP").size(), store.values("names", "squad").size());
+        assertEquals(List.of("Builder", "UltraOP"), store.values("names", "squad"));
         assertEquals("0003", store.list("names", "squad", "one").get(0).id());
         assertEquals("0001", store.list("names", "squad", "two").get(0).id());
     }
