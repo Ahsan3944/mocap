@@ -3,6 +3,7 @@ package net.mt1006.mocap.paper.playback;
 import io.papermc.paper.datacomponent.item.ResolvableProfile;
 import net.mt1006.mocap.paper.equipment.EquipmentPresetStore;
 import net.mt1006.mocap.paper.scene.MocapSceneStore;
+import net.mt1006.mocap.paper.settings.PaperSettingsStore;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -28,6 +29,7 @@ public final class PaperPlaybackManager {
     private final MocapSceneStore scenes;
     private final MocapRecordingParser parser = new MocapRecordingParser();
     private final EquipmentPresetStore equipment;
+    private final PaperSettingsStore settings;
     private final Map<String, Session> sessions = new LinkedHashMap<>();
     private final Map<String, ResolvableProfile> profileCache =
             Collections.synchronizedMap(new LinkedHashMap<String, ResolvableProfile>(64, 0.75f, true) {
@@ -38,10 +40,12 @@ public final class PaperPlaybackManager {
     private int nextId = 1;
     private int activeActors;
 
-    public PaperPlaybackManager(JavaPlugin plugin, MocapSceneStore scenes, EquipmentPresetStore equipment) {
+    public PaperPlaybackManager(JavaPlugin plugin, MocapSceneStore scenes, EquipmentPresetStore equipment,
+                               PaperSettingsStore settings) {
         this.plugin = plugin;
         this.scenes = scenes;
         this.equipment = equipment;
+        this.settings = settings;
         Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 1L, 1L);
     }
 
@@ -93,11 +97,11 @@ public final class PaperPlaybackManager {
                     m.setCustomNameVisible(preparedActor.spec().delayTicks() == 0);
                     m.setInvisible(preparedActor.spec().delayTicks() > 0);
                     m.setPersistent(false);
-                    m.setInvulnerable(true);
+                    m.setInvulnerable(settings.getBoolean("playback", "invulnerable_playback"));
                     m.setSilent(true);
                     m.setGravity(false);
                     m.setCanPickupItems(false);
-                    m.setCollidable(false);
+                    m.setCollidable(settings.getBoolean("playback", "can_push_entities"));
                     m.setImmovable(true);
                     m.setMainHand(MainHand.RIGHT);
                     m.setProfile(Mannequin.defaultProfile());
@@ -119,7 +123,8 @@ public final class PaperPlaybackManager {
             throw new IOException("Paper could not spawn all mannequin actors; partial playback was cleaned up.", e);
         }
 
-        Session session = new Session(id, playableName, actors, duration, loop);
+        Session session = new Session(id, playableName, actors, duration, loop,
+                settings.getDouble("playback", "playback_speed"));
         sessions.put(id, session);
         activeActors += actors.size();
         return id;
@@ -151,19 +156,26 @@ public final class PaperPlaybackManager {
         if (sessions.isEmpty()) return;
         for (Session session : new ArrayList<>(sessions.values())) {
             if (session.frozen || session.heldAtEnd) continue;
-            session.tick();
-            if (session.currentTick >= session.durationTicks) {
-                if (session.loop && !session.endFreeze) {
-                    session.currentTick = 0;
-                    for (Actor actor : session.actors) actor.resetForLoop();
-                } else if (session.endFreeze) {
-                    session.heldAtEnd = true;
-                    session.applyTagVisibility();
+            session.tickAccumulator += session.playbackSpeed;
+            int advances = (int)Math.floor(session.tickAccumulator);
+            if (advances < 1) continue;
+            session.tickAccumulator -= advances;
+            for (int step = 0; step < advances; step++) {
+                if (!sessions.containsKey(session.id) || session.frozen || session.heldAtEnd) break;
+                session.tick();
+                if (session.currentTick >= session.durationTicks) {
+                    if (session.loop && !session.endFreeze) {
+                        session.currentTick = 0;
+                        for (Actor actor : session.actors) actor.resetForLoop();
+                    } else if (session.endFreeze) {
+                        session.heldAtEnd = true;
+                        session.applyTagVisibility();
+                    } else {
+                        stop(session.id);
+                    }
                 } else {
-                    stop(session.id);
+                    session.currentTick++;
                 }
-            } else {
-                session.currentTick++;
             }
         }
     }
@@ -402,6 +414,8 @@ public final class PaperPlaybackManager {
         private final String name;
         private final List<Actor> actors;
         private final int durationTicks;
+        private final double playbackSpeed;
+        private double tickAccumulator;
         private boolean loop;
         private boolean frozen;
         private boolean endFreeze;
@@ -410,8 +424,9 @@ public final class PaperPlaybackManager {
         private boolean nameTagsHidden;
         private int currentTick;
 
-        private Session(String id, String name, List<Actor> actors, int durationTicks, boolean loop) {
-            this.id = id; this.name = name; this.actors = actors; this.durationTicks = durationTicks; this.loop = loop;
+        private Session(String id, String name, List<Actor> actors, int durationTicks, boolean loop, double playbackSpeed) {
+            this.id = id; this.name = name; this.actors = actors; this.durationTicks = durationTicks;
+            this.loop = loop; this.playbackSpeed = playbackSpeed;
         }
 
         private void tick() {
