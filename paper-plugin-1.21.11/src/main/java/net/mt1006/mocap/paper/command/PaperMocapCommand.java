@@ -5,6 +5,7 @@ import net.mt1006.mocap.paper.equipment.EquipmentPresetStore;
 import net.mt1006.mocap.paper.playback.PaperPlaybackManager;
 import net.mt1006.mocap.paper.scene.MocapSceneStore;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.World;
 import org.bukkit.command.*;
 import org.bukkit.entity.Player;
@@ -343,73 +344,164 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
     }
 
     private static void info(CommandSender sender) {
-        sender.sendMessage("Mocap Paper 1.21.11 visual playback port.");
-        sender.sendMessage("Recording capture is not implemented on Paper; use the original Mocap mod to record.");
-        sender.sendMessage("Paper actors are Mannequins, not fake ServerPlayer entities. See PORT_REPORT.md for parity limits.");
+        sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "          ULTRAOP • MOCAP");
+        sender.sendMessage(ChatColor.AQUA + "Paper Edition " + ChatColor.GRAY + " | Minecraft 1.21.11");
+        sender.sendMessage(ChatColor.GRAY + "Purpose: " + ChatColor.WHITE + "Mocap recording/scene file playback");
+        sender.sendMessage(ChatColor.GRAY + "Maintainer: " + ChatColor.YELLOW + "UltraOP");
+        sender.sendMessage(ChatColor.GRAY + "Platform: " + ChatColor.WHITE + "Paper Plugin • Java 21");
+        sender.sendMessage(ChatColor.GRAY + "Recording capture: " + ChatColor.RED + "Not implemented in this Paper port");
+        sender.sendMessage(ChatColor.GRAY + "Actors: " + ChatColor.WHITE + "Paper Mannequin API (not fake players)");
+        sender.sendMessage(ChatColor.GRAY + "Help: " + ChatColor.GREEN + "/mocap help");
+        sender.sendMessage(ChatColor.GRAY + "Limits: " + ChatColor.WHITE + "See PORT_REPORT.md in the source package.");
+        sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     }
 
     private static void help(CommandSender sender) {
-        sender.sendMessage("Mocap Paper 1.21.11 — command groups:");
-        sender.sendMessage("/mocap recording — recording capability/status");
-        sender.sendMessage("/mocap recordings — list and inspect existing recording files");
-        sender.sendMessage("/mocap scene — scene list, info, copy, customize, formation, play");
-        sender.sendMessage("/mocap playback — start/list/stop/freeze and playback settings");
-        sender.sendMessage("/mocap customize — names, skins, equipment presets");
-        sender.sendMessage("/mocap formation — create grid formations");
-        sender.sendMessage("/mocap copy — copy scenes without overwriting");
-        sender.sendMessage("/mocap info");
-        sender.sendMessage("Admin actions require mocap.admin. Use /mocap <group> help for details.");
+        sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "           ULTRAOP MOCAP HELP");
+        sender.sendMessage(ChatColor.AQUA + "ROOT " + ChatColor.WHITE + "/mocap <group> <action>");
+        sender.sendMessage(ChatColor.YELLOW + "RECORDING");
+        sender.sendMessage(ChatColor.WHITE + "/mocap recording <start|stop|save|discard|list>");
+        sender.sendMessage(ChatColor.GRAY + "  Recording capture is unavailable in this Paper port.");
+        sender.sendMessage(ChatColor.YELLOW + "SAVED RECORDINGS");
+        sender.sendMessage(ChatColor.WHITE + "/mocap recordings <list|info <name>>");
+        sender.sendMessage(ChatColor.YELLOW + "SCENES");
+        sender.sendMessage(ChatColor.WHITE + "/mocap scene <list|info <name>|copy <source> <target>|play <scene> [loop]>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap scene <customize|formation> ...");
+        sender.sendMessage(ChatColor.YELLOW + "PLAYBACK");
+        sender.sendMessage(ChatColor.WHITE + "/mocap playback <start <recording|scene> [loop]|list|stop <id>|stopall>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap playback <freeze|unfreeze|end-freeze> <id>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap playback <low-lag <id> <on|off>|nametags <id> <hide|show>>");
+        sender.sendMessage(ChatColor.YELLOW + "CUSTOMIZE");
+        sender.sendMessage(ChatColor.WHITE + "/mocap customize <names|skins|name|equipment> ...");
+        sender.sendMessage(ChatColor.YELLOW + "OTHER");
+        sender.sendMessage(ChatColor.WHITE + "/mocap formation add <scene> <recording> <rows> <columns> <spacing>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap copy scene <source> <target>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap info");
+        sender.sendMessage(ChatColor.GRAY + "Use /mocap <group> help for group-specific usage.");
+        sender.sendMessage(ChatColor.GRAY + "Management permission: " + ChatColor.YELLOW + "mocap.admin");
+        sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (args.length == 1) return filter(List.of("help", "info", "recording", "recordings", "scene", "playback", "customize", "formation", "copy"), args[0]);
+        if (args.length == 0) return rootSuggestions("");
         String root = args[0].toLowerCase(Locale.ROOT);
-        if (args.length == 2) {
-            return switch (root) {
-                case "recording" -> filter(List.of("help", "start", "stop", "save", "discard", "list"), args[1]);
-                case "recordings" -> filter(List.of("help", "list", "info"), args[1]);
-                case "scene", "scenes" -> filter(List.of("help", "list", "info", "copy", "customize", "formation", "play"), args[1]);
-                case "playback" -> filter(List.of("help", "start", "list", "stop", "stopall", "freeze", "unfreeze", "end-freeze", "low-lag", "nametags"), args[1]);
-                case "customize" -> filter(List.of("help", "names", "skins", "name", "equipment"), args[1]);
-                case "formation" -> filter(List.of("help", "add"), args[1]);
-                case "copy" -> filter(List.of("help", "scene"), args[1]);
-                default -> List.of();
-            };
-        }
-        if ((root.equals("recordings") && args.length == 3 && args[1].equalsIgnoreCase("info"))
-                || ((root.equals("scene") || root.equals("scenes")) && args.length == 3 && List.of("info", "copy", "play").contains(args[1].toLowerCase(Locale.ROOT)))
-                || (root.equals("customize") && args.length == 3 && List.of("names", "skins", "name").contains(args[1].toLowerCase(Locale.ROOT)))
-                || (root.equals("copy") && args.length == 3 && args[1].equalsIgnoreCase("scene"))) {
-            List<String> values = new ArrayList<>();
-            values.addAll(scenes.listScenes());
-            values.addAll(scenes.listRecordings());
-            return filter(values, args[2]);
-        }
-        if ((root.equals("scene") || root.equals("scenes")) && args.length == 4 && args[1].equalsIgnoreCase("copy")
-                || root.equals("copy") && args.length == 4 && args[1].equalsIgnoreCase("scene")) return filter(scenes.listScenes(), args[3]);
-        if (root.equals("scene") && args.length == 3 && args[1].equalsIgnoreCase("formation")) return filter(List.of("add"), args[2]);
-        if (root.equals("scene") && args.length == 4 && args[1].equalsIgnoreCase("formation")) return filter(scenes.listRecordings(), args[3]);
-        if (root.equals("scene") && args.length == 3 && args[1].equalsIgnoreCase("customize")) return filter(List.of("names", "skins", "name", "equipment"), args[2]);
-        if (root.equals("playback")) {
-            String action = args[1].toLowerCase(Locale.ROOT);
-            if (args.length == 3 && action.equals("start")) {
-                List<String> values = new ArrayList<>(scenes.listRecordings()); values.addAll(scenes.listScenes());
+        if (args.length == 1) return rootSuggestions(args[0]);
+
+        if (root.equals("recording")) {
+            if (args.length == 2) return filter(List.of("help", "start", "stop", "save", "discard", "list"), args[1]);
+            if (args.length == 3 && args[1].equalsIgnoreCase("start")) return playerAndSelectorSuggestions(args[2]);
+            if (args.length == 3 && List.of("stop", "save", "discard").contains(args[1].toLowerCase(Locale.ROOT))) {
+                List<String> values = new ArrayList<>(scenes.listRecordings());
+                values.addAll(playbackIds());
                 return filter(values, args[2]);
             }
-            if (args.length == 3 && List.of("stop", "freeze", "unfreeze", "end-freeze", "low-lag", "nametags").contains(action))
-                return filter(playbacks.list().stream().map(s -> s.split(" ")[0]).toList(), args[2]);
-            if (args.length == 4 && List.of("low-lag", "nametags").contains(action))
-                return filter(action.equals("low-lag") ? List.of("on", "off") : List.of("hide", "show"), args[3]);
+            if (args.length == 4 && args[1].equalsIgnoreCase("save")) return filter(List.of("<name>"), args[3]);
+            return List.of();
         }
-        if (root.equals("customize") && args.length >= 3 && args[1].equalsIgnoreCase("equipment")) {
-            if (args.length == 3) return filter(List.of("save", "list", "delete", "apply", "apply-element", "randomize"), args[2]);
-            if (args.length == 4 && List.of("save", "list", "delete").contains(args[2].toLowerCase(Locale.ROOT))) {
-                try { return filter(equipment.listGroups(), args[3]); } catch (IOException ignored) { return List.of(); }
+        if (root.equals("recordings")) {
+            if (args.length == 2) return filter(List.of("help", "list", "info"), args[1]);
+            if (args.length == 3 && args[1].equalsIgnoreCase("info")) return filter(scenes.listRecordings(), args[2]);
+            return List.of();
+        }
+        if (root.equals("scene") || root.equals("scenes")) {
+            if (args.length == 2) return filter(List.of("help", "list", "info", "copy", "customize", "formation", "play"), args[1]);
+            String action = args[1].toLowerCase(Locale.ROOT);
+            if (args.length == 3 && List.of("info", "play").contains(action)) return filter(scenes.listScenes(), args[2]);
+            if (args.length == 3 && action.equals("copy")) return filter(scenes.listScenes(), args[2]);
+            if (args.length == 4 && action.equals("copy")) return filter(scenes.listScenes(), args[3]);
+            if (args.length == 3 && action.equals("customize")) return filter(List.of("names", "skins", "name", "equipment"), args[2]);
+            if (action.equals("customize")) return customizeSuggestions(args, 2);
+            if (args.length == 3 && action.equals("formation")) return filter(List.of("add"), args[2]);
+            if (args.length == 4 && action.equals("formation") && args[2].equalsIgnoreCase("add")) return filter(scenes.listScenes(), args[3]);
+            if (args.length == 5 && action.equals("formation") && args[2].equalsIgnoreCase("add")) return filter(scenes.listRecordings(), args[4]);
+            if (args.length == 6 && action.equals("formation") && args[2].equalsIgnoreCase("add")) return filter(List.of("<rows>"), args[5]);
+            if (args.length == 7 && action.equals("formation") && args[2].equalsIgnoreCase("add")) return filter(List.of("<columns>"), args[6]);
+            if (args.length == 8 && action.equals("formation") && args[2].equalsIgnoreCase("add")) return filter(List.of("<spacing>"), args[7]);
+            return List.of();
+        }
+        if (root.equals("playback")) {
+            if (args.length == 2) return filter(List.of("help", "start", "list", "stop", "stopall", "freeze", "unfreeze", "end-freeze", "low-lag", "nametags"), args[1]);
+            String action = args[1].toLowerCase(Locale.ROOT);
+            if (args.length == 3 && action.equals("start")) return combineAndFilter(scenes.listRecordings(), scenes.listScenes(), args[2]);
+            if (args.length == 3 && List.of("stop", "freeze", "unfreeze", "end-freeze", "low-lag", "nametags").contains(action)) return filter(playbackIds(), args[2]);
+            if (args.length == 4 && action.equals("start")) return filter(List.of("loop"), args[3]);
+            if (args.length == 4 && action.equals("low-lag")) return filter(List.of("on", "off"), args[3]);
+            if (args.length == 4 && action.equals("nametags")) return filter(List.of("hide", "show"), args[3]);
+            return List.of();
+        }
+        if (root.equals("customize")) return customizeSuggestions(args, 1);
+        if (root.equals("formation")) {
+            if (args.length == 2) return filter(List.of("help", "add"), args[1]);
+            if (args.length == 3 && args[1].equalsIgnoreCase("add")) return filter(scenes.listScenes(), args[2]);
+            if (args.length == 4 && args[1].equalsIgnoreCase("add")) return filter(scenes.listRecordings(), args[3]);
+            if (args.length == 5 && args[1].equalsIgnoreCase("add")) return filter(List.of("<rows>"), args[4]);
+            if (args.length == 6 && args[1].equalsIgnoreCase("add")) return filter(List.of("<columns>"), args[5]);
+            if (args.length == 7 && args[1].equalsIgnoreCase("add")) return filter(List.of("<spacing>"), args[6]);
+            return List.of();
+        }
+        if (root.equals("copy")) {
+            if (args.length == 2) return filter(List.of("help", "scene"), args[1]);
+            if (args.length == 3 && args[1].equalsIgnoreCase("scene")) return filter(scenes.listScenes(), args[2]);
+            if (args.length == 4 && args[1].equalsIgnoreCase("scene")) return filter(scenes.listScenes(), args[3]);
+        }
+        return List.of();
+    }
+
+    private List<String> rootSuggestions(String prefix) {
+        return filter(List.of("help", "info", "recording", "recordings", "scene", "playback", "customize", "formation", "copy"), prefix);
+    }
+
+    private List<String> playerAndSelectorSuggestions(String prefix) {
+        List<String> values = new ArrayList<>(List.of("@a", "@p", "@s"));
+        values.addAll(Bukkit.getOnlinePlayers().stream().map(Player::getName).toList());
+        return filter(values, prefix);
+    }
+
+    private List<String> playbackIds() {
+        return playbacks.list().stream().map(s -> s.split(" ")[0]).toList();
+    }
+
+    private List<String> combineAndFilter(List<String> first, List<String> second, String prefix) {
+        List<String> values = new ArrayList<>(first);
+        values.addAll(second);
+        return filter(values, prefix);
+    }
+
+    private List<String> customizeSuggestions(String[] args, int base) {
+        int rel = args.length - base;
+        if (rel == 1) return filter(List.of("names", "skins", "name", "equipment"), args[base]);
+        String action = args[base].toLowerCase(Locale.ROOT);
+        if (action.equals("equipment")) {
+            if (rel == 2) return filter(List.of("help", "save", "list", "delete", "apply", "apply-element", "randomize"), args[base + 1]);
+            if (rel < 3) return List.of();
+            String sub = args[base + 1].toLowerCase(Locale.ROOT);
+            if (rel == 3 && List.of("apply", "apply-element", "randomize").contains(sub)) return filter(playbackIds(), args[base + 2]);
+            if (rel == 3 && List.of("save", "list", "delete").contains(sub)) {
+                try { return filter(equipment.listGroups(), args[base + 2]); } catch (IOException ignored) { return List.of(); }
             }
-            if (args.length == 4 && List.of("apply", "apply-element", "randomize").contains(args[2].toLowerCase(Locale.ROOT)))
-                return filter(playbacks.list().stream().map(s -> s.split(" ")[0]).toList(), args[3]);
+            if (rel == 4 && sub.equals("apply")) {
+                try { return filter(equipment.list(args[base + 2]), args[base + 3]); } catch (IOException ignored) { return List.of("<preset-name>"); }
+            }
+            if (rel == 4 && List.of("save", "delete").contains(sub)) return filter(List.of("<preset-name>"), args[base + 3]);
+            if (rel == 4 && sub.equals("randomize")) {
+                try { return filter(equipment.listGroups(), args[base + 3]); } catch (IOException ignored) { return List.of(); }
+            }
+            if (rel == 5 && sub.equals("apply-element")) return filter(List.of("<actor-index>"), args[base + 4]);
+            if (rel == 6 && sub.equals("apply-element")) {
+                try { return filter(equipment.listGroups(), args[base + 5]); } catch (IOException ignored) { return List.of(); }
+            }
+            if (rel == 7 && sub.equals("apply-element")) {
+                try { return filter(equipment.list(args[base + 5]), args[base + 6]); } catch (IOException ignored) { return List.of("<preset-name>"); }
+            }
+            return List.of();
         }
+        if (rel == 2 && List.of("names", "skins", "name").contains(action)) return filter(scenes.listScenes(), args[base + 1]);
+        if (rel == 3 && action.equals("name")) return filter(List.of("<element-index>"), args[base + 2]);
+        if (rel == 4 && action.equals("name")) return playerAndSelectorSuggestions(args[base + 3]);
+        if (rel == 3 && List.of("names", "skins").contains(action)) return filter(List.of("<comma,separated,values>"), args[base + 2]);
         return List.of();
     }
 
