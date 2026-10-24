@@ -44,13 +44,14 @@ class MocapSceneStoreTest {
                 new String[]{"offset", "2.5", "0", "-3"});
         store.modifySceneElement("battle", "001-alex_run", "time",
                 new String[]{"start_delay", "0.5"});
+        store.modifySceneElement("battle", "001-alex_run", "player_name", new String[]{"set", "UltraOP"});
 
         var scene = store.readScene(".battle");
         var elements = scene.getAsJsonArray("subscenes");
         assertEquals(1, elements.size());
         var element = elements.get(0).getAsJsonObject();
         assertEquals("alex_run", element.get("name").getAsString());
-        assertEquals("Alex", element.get("player_name").getAsString());
+        assertEquals("UltraOP", element.get("player_name").getAsString());
         assertEquals("from_player", element.getAsJsonObject("player_skin").get("skin_source").getAsString());
         assertEquals("Steve", element.getAsJsonObject("player_skin").get("skin_path").getAsString());
         assertEquals(1.5, element.getAsJsonObject("time").get("wait_on_start").getAsDouble(), 0.0001);
