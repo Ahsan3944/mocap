@@ -1188,6 +1188,8 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             return List.of();
         }
         if (root.equals("settings")) return settingsSuggestions(args);
+        if (List.of("names", "name").contains(root)) return profileLibrarySuggestions(args, "names");
+        if (List.of("skins", "skin").contains(root)) return profileLibrarySuggestions(args, "skins");
         return List.of();
     }
 
@@ -1384,7 +1386,7 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
     }
 
     private List<String> rootSuggestions(String prefix) {
-        return filter(List.of("help", "info", "recording", "recordings", "scenes", "scene", "playing", "playback", "settings", "customize", "formation", "copy"), prefix);
+        return filter(List.of("help", "info", "recording", "recordings", "scenes", "scene", "playing", "playback", "settings", "customize", "formation", "copy", "names", "skins", "name", "skin"), prefix);
     }
 
     private List<String> playerAndSelectorSuggestions(String prefix) {
@@ -1524,9 +1526,34 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         }
         if (rel == 4 && action.equals("name")) return profileNameSuggestions(args[base + 3]);
         if (rel == 3 && List.of("names", "skins").contains(action)) {
-            List<String> values = new ArrayList<>(filter(List.of("auto", "random", "recorded"), args[base + 2]));
-            values.addAll(profileNameSuggestions(args[base + 2]));
-            return values.stream().distinct().limit(100).toList();
+            String kind = action;
+            List<String> options = new ArrayList<>();
+            options.add("auto");
+            options.addAll(filter(profileLibraries.listGroups(kind), args[base + 2]));
+            // Keep the legacy direct-paste mode available without mixing it into official-name suggestions.
+            options.add("<comma-separated-profile-names>");
+            return filter(options, args[base + 2]).stream().distinct().limit(100).toList();
+        }
+        if (rel == 4 && List.of("names", "skins").contains(action)) {
+            String kind = action;
+            String group = args[base + 2];
+            List<String> options = new ArrayList<>();
+            options.add("auto"); // Always first: it is a mode, not a profile name.
+            try {
+                if (profileLibraries.listGroups(kind).stream().anyMatch(g -> g.equalsIgnoreCase(group))) {
+                    for (String subgroup : profileLibraries.listSubgroups(kind, group)) options.add("subgroup:" + subgroup);
+                    options.addAll(profileLibraries.values(kind, group));
+                }
+            } catch (IOException ignored) {}
+            options.add("<comma-separated-profile-names>");
+            return filter(options, args[base + 3]).stream().distinct().limit(100).toList();
+        }
+        if (rel == 5 && List.of("names", "skins").contains(action)) {
+            String kind = action;
+            String group = args[base + 2];
+            String scope = args[base + 3];
+            if (scope.startsWith("subgroup:")) return filter(List.of("auto"), args[base + 4]);
+            return filter(List.of("auto"), args[base + 4]);
         }
         return List.of();
     }
