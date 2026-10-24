@@ -163,8 +163,13 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
 
     private void recordingsCommand(CommandSender sender, String[] args) throws IOException {
         if (args.length == 1 || eq(args[1], "help")) {
-            sender.sendMessage("Recordings: list | info <name>");
-            sender.sendMessage("Use /mocap recordings list to see saved .mcmocap_rec files.");
+            sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "MOCAP SAVED RECORDINGS");
+            sender.sendMessage(ChatColor.WHITE + "/mocap recordings list");
+            sender.sendMessage(ChatColor.WHITE + "/mocap recordings info <name>");
+            sender.sendMessage(ChatColor.WHITE + "/mocap recordings copy <source> <target>");
+            sender.sendMessage(ChatColor.WHITE + "/mocap recordings rename <old_name> <new_name>");
+            sender.sendMessage(ChatColor.WHITE + "/mocap recordings remove <name>");
+            sender.sendMessage(ChatColor.GRAY + "Files are stored in world/mocap_files/recordings/.");
             return;
         }
         switch (args[1].toLowerCase(Locale.ROOT)) {
@@ -172,10 +177,33 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             case "info" -> {
                 if (args.length < 3) { usage(sender, "/mocap recordings info <name>"); return; }
                 var path = scenes.recordingPath(args[2]);
-                sender.sendMessage("Recording: " + path.getFileName());
-                sender.sendMessage("Size: " + Files.size(path) + " bytes");
+                var parsed = new net.mt1006.mocap.paper.playback.MocapRecordingParser().parse(path);
+                sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "MOCAP RECORDING INFO");
+                sender.sendMessage(ChatColor.GRAY + "File: " + ChatColor.WHITE + path.getFileName());
+                sender.sendMessage(ChatColor.GRAY + "Recorded player: " + ChatColor.AQUA + (parsed.recordedProfileName() == null ? "(not stored)" : parsed.recordedProfileName()));
+                sender.sendMessage(ChatColor.GRAY + "Format: " + ChatColor.AQUA + parsed.formatVersion());
+                sender.sendMessage(ChatColor.GRAY + "Size: " + ChatColor.AQUA + Files.size(path) + " bytes");
+                sender.sendMessage(ChatColor.GRAY + "Duration: " + ChatColor.AQUA + parsed.durationTicks() + " ticks");
             }
-            default -> { sender.sendMessage("Unknown recordings action: " + args[1]); sender.sendMessage("Usage: /mocap recordings <list|info>"); }
+            case "copy" -> {
+                if (args.length < 4) { usage(sender, "/mocap recordings copy <source> <target>"); return; }
+                scenes.copyRecording(args[2], args[3]);
+                sender.sendMessage(ChatColor.GREEN + "Copied recording " + args[2] + " to " + args[3] + ".");
+            }
+            case "rename" -> {
+                if (args.length < 4) { usage(sender, "/mocap recordings rename <old_name> <new_name>"); return; }
+                scenes.renameRecording(args[2], args[3]);
+                sender.sendMessage(ChatColor.GREEN + "Renamed recording " + args[2] + " to " + args[3] + ".");
+            }
+            case "remove", "delete" -> {
+                if (args.length < 3) { usage(sender, "/mocap recordings remove <name>"); return; }
+                scenes.removeRecording(args[2]);
+                sender.sendMessage(ChatColor.GREEN + "Removed recording " + args[2] + ".");
+            }
+            default -> {
+                sender.sendMessage(ChatColor.RED + "Unknown recordings action: " + args[1]);
+                sender.sendMessage("Usage: /mocap recordings <list|info|copy|rename|remove>");
+            }
         }
     }
 
