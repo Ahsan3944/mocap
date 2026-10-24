@@ -14,12 +14,10 @@ import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MainHand;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.profile.PlayerProfile;
 
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class PaperPlaybackManager {
@@ -31,9 +29,9 @@ public final class PaperPlaybackManager {
     private final MocapRecordingParser parser = new MocapRecordingParser();
     private final EquipmentPresetStore equipment;
     private final Map<String, Session> sessions = new LinkedHashMap<>();
-    private final Map<String, CompletableFuture<? extends PlayerProfile>> profileCache =
-            Collections.synchronizedMap(new LinkedHashMap<>(64, 0.75f, true) {
-                @Override protected boolean removeEldestEntry(Map.Entry<String, CompletableFuture<PlayerProfile>> eldest) {
+    private final Map<String, ResolvableProfile> profileCache =
+            Collections.synchronizedMap(new LinkedHashMap<String, ResolvableProfile>(64, 0.75f, true) {
+                @Override protected boolean removeEldestEntry(Map.Entry<String, ResolvableProfile> eldest) {
                     return size() > MAX_PROFILE_CACHE;
                 }
             });
@@ -117,30 +115,23 @@ public final class PaperPlaybackManager {
     private void requestProfile(Actor actor) {
         String profileName = actor.profileName();
         if (profileName == null || !profileName.matches("[A-Za-z0-9_]{1,16}")) return;
-        CompletableFuture<? extends PlayerProfile> future;
+
+        ResolvableProfile profile;
         synchronized (profileCache) {
-            future = profileCache.get(profileName.toLowerCase(Locale.ROOT));
-            if (future == null) {
-                try {
-                    future = Bukkit.createProfile(profileName).update();
-                    profileCache.put(profileName.toLowerCase(Locale.ROOT), future);
-                } catch (RuntimeException e) {
-                    plugin.getLogger().fine("Profile lookup could not start for " + profileName + ": " + e.getMessage());
-                    return;
-                }
+            String key = profileName.toLowerCase(Locale.ROOT);
+            profile = profileCache.get(key);
+            if (profile == null) {
+                // A name-based resolvable profile lets Paper/client resolve the Mojang skin
+                // without server-thread blocking or depending on the deprecated profile type.
+                profile = ResolvableProfile.resolvableProfile().name(profileName).build();
+                profileCache.put(key, profile);
             }
         }
-        future.whenComplete((profile, error) -> {
-            if (error != null || profile == null) {
-                plugin.getLogger().fine("Profile lookup failed for " + profileName);
-                return;
-            }
-            Bukkit.getScheduler().runTask(plugin, () -> {
-                if (!actor.mannequin().isValid() || actor.mannequin().isDead()) return;
-                try { actor.mannequin().setProfile(ResolvableProfile.resolvableProfile(profile)); }
-                catch (RuntimeException e) { plugin.getLogger().fine("Could not apply profile " + profileName + ": " + e.getMessage()); }
-            });
-        });
+        try {
+            actor.mannequin().setProfile(profile);
+        } catch (RuntimeException e) {
+            plugin.getLogger().fine("Could not assign resolvable profile " + profileName + ": " + e.getMessage());
+        }
     }
 
     private void tick() {
