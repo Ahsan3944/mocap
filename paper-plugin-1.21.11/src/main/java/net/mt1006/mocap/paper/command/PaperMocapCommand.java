@@ -598,7 +598,9 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         String action = args[0].toLowerCase(Locale.ROOT);
         if (eq(action, "customize")) {
             if (args.length == 1 || eq(args[1], "help")) {
-                sender.sendMessage("Customize: names <scene> <comma-separated-names|auto> | skins <scene> <comma-separated-profile-names|auto> | name <scene> <element-index> <player-name> | equipment ...");
+                sender.sendMessage("Customize: names <scene> <group> auto | skins <scene> <group> auto | name <scene> <element-index[-name]> <player-name> | equipment ...");
+                sender.sendMessage("Library: /mocap names|skins <groups|save|add|list|remove|import|import-add> ...");
+                sender.sendMessage("Equipment: /mocap customize equipment <apply|remove|remove-element|mix|randomize> ...");
                 return;
             }
             action = args[1].toLowerCase(Locale.ROOT);
@@ -1033,13 +1035,13 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
                 String group = args[3];
                 List<String> selected = Arrays.stream(Arrays.copyOfRange(args, 4, args.length)).map(String::trim).filter(s -> !s.isEmpty()).toList();
                 sender.sendMessage(playbacks.mixPresets(playbackId, group, selected)
-                        ? ChatColor.GREEN + "Mixed " + selected.size() + " selected armor/equipment sets across playback " + playbackId + ". Each actor received one randomly selected set."
+                        ? ChatColor.GREEN + "Mixed " + selected.size() + " selected armor sets across playback " + playbackId + ". Each actor received one randomly selected armor set; hand items were preserved."
                         : ChatColor.RED + "Playback ID " + playbackId + " was not found. Run /mocap playback list.");
             }
             case "randomize" -> {
                 if (args.length < 4) { usage(sender, "/mocap customize equipment randomize <playback-id> <group-name>"); return; }
                 sender.sendMessage(playbacks.randomizePresets(args[2], args[3])
-                        ? ChatColor.GREEN + "Randomized equipment presets from group " + args[3] + " across playback " + args[2] + "."
+                        ? ChatColor.GREEN + "Randomized armor sets from group " + args[3] + " across playback " + args[2] + "; held items were preserved."
                         : ChatColor.RED + "Playback ID " + args[2] + " was not found. Run /mocap playback list.");
             }
             default -> {
@@ -1146,10 +1148,17 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.YELLOW + "PAPER PLAYBACK ADD-ONS");
         sender.sendMessage(ChatColor.WHITE + "/mocap playback <freeze|unfreeze|end-freeze> <id>");
         sender.sendMessage(ChatColor.WHITE + "/mocap playback <low-lag <id> <on|off>|nametags <id> <hide|show>>");
+        sender.sendMessage(ChatColor.YELLOW + "PROFILE LIBRARIES");
+        sender.sendMessage(ChatColor.WHITE + "/mocap names|skins <groups|subgroups|list|save|add|remove|import|import-add> ...");
+        sender.sendMessage(ChatColor.GRAY + "  Save official names in group/subgroup lists with stable IDs. Bulk paste comma-separated names or import a UTF-8 .txt file.");
+        sender.sendMessage(ChatColor.WHITE + "/mocap customize <names|skins> <scene> <group> auto");
+        sender.sendMessage(ChatColor.GRAY + "  Auto appears first in TAB and selects randomly from saved profiles; each actor is assigned independently.");
         sender.sendMessage(ChatColor.YELLOW + "CUSTOMIZE / FORMATION");
-        sender.sendMessage(ChatColor.WHITE + "/mocap customize <names|skins|name|equipment> ...");
-        sender.sendMessage(ChatColor.GRAY + "  scenes modify is the upstream per-element modifier tree; customize is the UltraOP shortcut for bulk names/skins/equipment.");
+        sender.sendMessage(ChatColor.WHITE + "/mocap customize equipment <apply|apply-element|remove|remove-element|mix|randomize> ...");
+        sender.sendMessage(ChatColor.GRAY + "  remove clears armor only. mix/randomize assign selected saved armor sets randomly across a playback.");
+        sender.sendMessage(ChatColor.GRAY + "  scenes modify is the upstream per-element modifier tree; customize is the UltraOP shortcut for names/skins/equipment.");
         sender.sendMessage(ChatColor.WHITE + "/mocap formation add <scene-name> <recording-name> <rows:1-1000> <columns:1-1000> <spacing-blocks:0.5-128>");
+        sender.sendMessage(ChatColor.GRAY + "  The source character stays at row 1/column 1; columns grow right and rows grow behind relative to recorded yaw.");
         sender.sendMessage(ChatColor.WHITE + "/mocap copy scene <source> <target>");
         sender.sendMessage(ChatColor.WHITE + "/mocap settings <recording|playback|advanced> [<setting> [<value>]]");
         sender.sendMessage(ChatColor.GRAY + "  Settings lists original field names and marks each field as supported or upstream-only in this Paper port.");
