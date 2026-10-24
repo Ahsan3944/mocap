@@ -406,7 +406,7 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         String action = args[1].toLowerCase(Locale.ROOT);
         String[] a = shift(args, 1, action);
         switch (action) {
-            case "start", "play" -> {
+            case "start" -> {
                 if (a.length < 2) {
                     usage(sender, "/mocap playback start <recording|.scene> [<player_name>] [skin_from_player <profile>] [loop]");
                     return;
@@ -631,7 +631,8 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         String action = args[0].toLowerCase(Locale.ROOT);
         if (eq(action, "customize")) {
             if (args.length == 1 || eq(args[1], "help")) {
-                sender.sendMessage("Customize: names <scene> <group> auto | skins <scene> <group> auto | name <scene> <element-index[-name]> <player-name> | equipment ...");
+                sender.sendMessage("Customize: names <scene> <group> auto | skins <scene> <group> auto | equipment ...");
+                sender.sendMessage("Change one actor's display name: /mocap names modify <scene> <element-index[-name]> <player-name>.");
                 sender.sendMessage("Library: /mocap names|skins <groups|save|add|list|remove|import|import-add> ...");
                 sender.sendMessage("Equipment: /mocap customize equipment <apply|remove|remove-element|mix|randomize> ...");
                 return;
@@ -642,10 +643,6 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         switch (action) {
             case "random_names", "names" -> assignProfiles(sender, args, false);
             case "random_skins", "skins" -> assignProfiles(sender, args, true);
-            case "set_name", "name" -> {
-                if (args.length < 4) { usage(sender, "/mocap customize name <scene> <element-index[-expected-name]> <player-name>"); return; }
-                setSceneElementPlayerName(sender, args[1], args[2], args[3]);
-            }
             case "equipment" -> equipmentCommand(sender, args);
             default -> sender.sendMessage("Unknown customize action: " + action);
         }
@@ -678,6 +675,14 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage(subgroups.isEmpty()
                         ? ChatColor.YELLOW + "No subgroups in " + args[2] + ". Save a list with /mocap " + kind + " save " + args[2] + " <subgroup> <comma,separated,names>."
                         : ChatColor.GOLD + "Subgroups in " + args[2] + ": " + String.join(", ", subgroups));
+            }
+            case "modify" -> {
+                if (args.length < 5) {
+                    usage(sender, "/mocap names modify <scene-name> <element-index[-name]> <new-player-name>");
+                    sender.sendMessage(ChatColor.GRAY + "Use /mocap names list <group> [<subgroup>] [<page>|page:<page>] to inspect saved profile lists.");
+                    return;
+                }
+                setSceneElementPlayerName(sender, args[2], args[3], args[4]);
             }
             case "list" -> {
                 if (args.length < 3) {
@@ -821,8 +826,14 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
     }
 
     private List<String> profileLibrarySuggestions(String[] args, String kind) {
-        if (args.length == 2) return filter(List.of("help", "groups", "subgroups", "list", "save", "add", "import", "import-add", "remove", "delete", "info"), args[1]);
+        if (args.length == 2) return filter(List.of("help", "groups", "subgroups", "list", "save", "add", "import", "import-add", "remove", "delete", "info", "modify"), args[1]);
         String action = args[1].toLowerCase(Locale.ROOT);
+        if (action.equals("modify")) {
+            if (args.length == 3) return sceneNameSuggestions(args[2]);
+            if (args.length == 4) return filter(scenes.sceneElementSuggestions(args[2]), args[3]);
+            if (args.length == 5) return profileNameSuggestions(args[4]);
+            return List.of();
+        }
         if (args.length == 3) {
             if (action.equals("groups")) return List.of();
             if (List.of("subgroups", "list", "save", "add", "import", "import-add", "remove", "delete", "info").contains(action)) {
@@ -1574,17 +1585,17 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
     }
 
     private List<String> playbackSuggestions(String[] args) {
-        if (args.length == 2) return filter(List.of("help", "start", "play", "list", "stop", "stopall", "stop_all",
+        if (args.length == 2) return filter(List.of("help", "start", "list", "stop", "stopall", "stop_all",
                 "freeze", "unfreeze", "end-freeze", "low-lag", "nametags", "playhere", "modifiers"), args[1]);
         String action = args[1].toLowerCase(Locale.ROOT);
-        if (args.length == 3 && List.of("start", "play", "playhere").contains(action)) return playableNameSuggestions(args[2]);
+        if (args.length == 3 && List.of("start", "playhere").contains(action)) return playableNameSuggestions(args[2]);
         if (args.length == 3 && List.of("stop", "freeze", "unfreeze", "end-freeze", "low-lag").contains(action)) return playbackIdSuggestions(args[2]);
         if (args.length == 3 && action.equals("nametags")) {
             List<String> values = new ArrayList<>(filter(List.of("hide", "show"), args[2]));
             values.addAll(playbackIdSuggestions(args[2]));
             return values.stream().distinct().limit(100).toList();
         }
-        if (args.length == 4 && (action.equals("start") || action.equals("play"))) {
+        if (args.length == 4 && action.equals("start")) {
             if (args[3].equalsIgnoreCase("skin_from_player") || args[3].equalsIgnoreCase("from_player")) {
                 return profileNameSuggestions("");
             }
