@@ -675,16 +675,16 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
                 List<ProfileLibraryStore.Entry> changed = action.equals("save")
                         ? profileLibraries.save(kind, args[2], args[3], List.of(raw))
                         : profileLibraries.add(kind, args[2], args[3], List.of(raw));
-                sender.sendMessage(ChatColor.GREEN + (action.equals("save") ? "Saved/replaced " : "Added ")
-                        + changed.size() + " " + kind + " entry/entries in " + args[2] + "/" + args[3] + ".");
-                if (!changed.isEmpty()) {
-                    ProfileLibraryStore.Entry first = changed.get(0);
-                    ProfileLibraryStore.Entry last = changed.get(changed.size() - 1);
-                    sender.sendMessage(ChatColor.GRAY + "Entry IDs: " + first.id()
-                            + (changed.size() > 1 ? "–" + last.id() : "") + ". Use /mocap " + kind + " list " + args[2] + " " + args[3] + " to review.");
-                } else {
-                    sender.sendMessage(ChatColor.YELLOW + "No new entries were needed; duplicate values were skipped.");
+                reportProfileListChange(sender, kind, args[2], args[3], changed, action.equals("save"));
+            }
+            case "import", "import-add" -> {
+                if (args.length < 5) {
+                    usage(sender, "/mocap " + kind + " " + action + " <group> <subgroup> <file-name.txt>");
+                    sender.sendMessage(ChatColor.GRAY + "Put the UTF-8 file under plugins/MocapPaper/profile-libraries/imports/. One profile per line or comma-separated.");
+                    return;
                 }
+                List<ProfileLibraryStore.Entry> changed = profileLibraries.importFile(kind, args[2], args[3], args[4], action.equals("import-add"));
+                reportProfileListChange(sender, kind, args[2], args[3], changed, !action.equals("import-add"));
             }
             case "remove" -> {
                 if (args.length < 5) { usage(sender, "/mocap " + kind + " remove <group> <subgroup> <entry-id-or-exact-name>"); return; }
@@ -720,6 +720,20 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         }
     }
 
+    private static void reportProfileListChange(CommandSender sender, String kind, String group, String subgroup,
+                                                List<ProfileLibraryStore.Entry> changed, boolean replaced) {
+        sender.sendMessage(ChatColor.GREEN + (replaced ? "Saved/replaced " : "Added ")
+                + changed.size() + " " + kind + " entry/entries in " + group + "/" + subgroup + ".");
+        if (!changed.isEmpty()) {
+            ProfileLibraryStore.Entry first = changed.get(0);
+            ProfileLibraryStore.Entry last = changed.get(changed.size() - 1);
+            sender.sendMessage(ChatColor.GRAY + "Entry IDs: " + first.id()
+                    + (changed.size() > 1 ? "–" + last.id() : "") + ". Use /mocap " + kind + " list " + group + " " + subgroup + " to review.");
+        } else {
+            sender.sendMessage(ChatColor.YELLOW + "No new entries were needed; duplicate values were skipped.");
+        }
+    }
+
     private static void profileLibraryHelp(CommandSender sender, String kind) {
         sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "       " + kind.toUpperCase(Locale.ROOT) + " LIBRARY");
@@ -728,20 +742,23 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.WHITE + "/mocap " + kind + " list <group> [<subgroup>]");
         sender.sendMessage(ChatColor.WHITE + "/mocap " + kind + " save <group> <subgroup> <comma,separated,names>");
         sender.sendMessage(ChatColor.WHITE + "/mocap " + kind + " add <group> <subgroup> <comma,separated,names>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap " + kind + " import <group> <subgroup> <file-name.txt>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap " + kind + " import-add <group> <subgroup> <file-name.txt>");
         sender.sendMessage(ChatColor.WHITE + "/mocap " + kind + " remove <group> <subgroup> <entry-id-or-exact-name>");
         sender.sendMessage(ChatColor.WHITE + "/mocap " + kind + " delete <group> <subgroup>");
         sender.sendMessage(ChatColor.WHITE + "/mocap " + kind + " info <group> <subgroup> <entry-id>");
         sender.sendMessage(ChatColor.GRAY + "Paste a comma-separated list. Up to 3,000 unique official Mojang player names per subgroup.");
+        sender.sendMessage(ChatColor.GRAY + "For thousands of names, import UTF-8 .txt files from plugins/MocapPaper/profile-libraries/imports/ (512 KiB max).");
         sender.sendMessage(ChatColor.GRAY + "IDs remain stable when other entries are removed. Names are checked as official 1–16-character profile names.");
         sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     }
 
     private List<String> profileLibrarySuggestions(String[] args, String kind) {
-        if (args.length == 2) return filter(List.of("help", "groups", "subgroups", "list", "save", "add", "remove", "delete", "info"), args[1]);
+        if (args.length == 2) return filter(List.of("help", "groups", "subgroups", "list", "save", "add", "import", "import-add", "remove", "delete", "info"), args[1]);
         String action = args[1].toLowerCase(Locale.ROOT);
         if (args.length == 3) {
             if (action.equals("groups")) return List.of();
-            if (List.of("subgroups", "list", "save", "add", "remove", "delete", "info").contains(action)) {
+            if (List.of("subgroups", "list", "save", "add", "import", "import-add", "remove", "delete", "info").contains(action)) {
                 try {
                     List<String> groups = new ArrayList<>(profileLibraries.listGroups(kind));
                     if (List.of("save", "add").contains(action)) groups.add("<new-group-name>");
@@ -750,7 +767,7 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             }
         }
         if (args.length == 4) {
-            if (List.of("list", "save", "add", "remove", "delete", "info").contains(action)) {
+            if (List.of("list", "save", "add", "import", "import-add", "remove", "delete", "info").contains(action)) {
                 try {
                     List<String> subgroups = new ArrayList<>(profileLibraries.listSubgroups(kind, args[2]));
                     if (List.of("save", "add").contains(action)) subgroups.add("<new-subgroup-name>");
@@ -759,12 +776,14 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             }
         }
         if (args.length == 5 && List.of("save", "add").contains(action)) return filterOrHint(List.of(), args[4], "<comma,separated,official-profile-names>");
+        if (args.length == 5 && List.of("import", "import-add").contains(action)) return filterOrHint(List.of(), args[4], "<file-name.txt:put-in-profile-libraries/imports>");
         if (args.length == 5 && List.of("remove", "info").contains(action)) {
             try {
                 return filter(profileLibraries.list(kind, args[2], args[3]).stream().map(ProfileLibraryStore.Entry::id).toList(), args[4]);
             } catch (IOException ignored) { return List.of(); }
         }
         if (args.length >= 5 && List.of("save", "add").contains(action)) return filterOrHint(List.of(), args[args.length - 1], "<comma,separated,official-profile-names>");
+        if (args.length >= 5 && List.of("import", "import-add").contains(action)) return filterOrHint(List.of(), args[args.length - 1], "<file-name.txt:put-in-profile-libraries/imports>");
         return List.of();
     }
 
