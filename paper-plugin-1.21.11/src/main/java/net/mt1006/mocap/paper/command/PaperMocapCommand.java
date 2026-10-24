@@ -894,8 +894,8 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         scenes.addFormation(sceneName, recordingName, rows, columns, spacing);
         sender.sendMessage(ChatColor.GREEN + "Formation added to scene ." + MocapSceneStore.normalizeSceneName(sceneName) + ".");
         sender.sendMessage(ChatColor.GRAY + "Source recording: " + ChatColor.WHITE + recordingName
-                + ChatColor.GRAY + " | Rows (Z): " + ChatColor.AQUA + rows
-                + ChatColor.GRAY + " | Columns (X): " + ChatColor.AQUA + columns
+                + ChatColor.GRAY + " | Rows (behind): " + ChatColor.AQUA + rows
+                + ChatColor.GRAY + " | Columns (right): " + ChatColor.AQUA + columns
                 + ChatColor.GRAY + " | Spacing: " + ChatColor.AQUA + spacing + " blocks"
                 + ChatColor.GRAY + " | Actors added: " + ChatColor.GREEN + actorCount);
     }
@@ -907,8 +907,8 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.YELLOW + "ARGUMENT GUIDE");
         sender.sendMessage(ChatColor.GRAY + "scene-name: existing destination scene; the formation is saved into this scene.");
         sender.sendMessage(ChatColor.GRAY + "recording-name: an existing saved recording copied into every grid position.");
-        sender.sendMessage(ChatColor.GRAY + "rows: number of rows along the Z axis.");
-        sender.sendMessage(ChatColor.GRAY + "columns: number of actors in each row along the X axis.");
+        sender.sendMessage(ChatColor.GRAY + "rows: rows added behind the source character, aligned to the recorded starting yaw.");
+        sender.sendMessage(ChatColor.GRAY + "columns: actors added to the source character's right, relative to the recorded starting yaw.");
         sender.sendMessage(ChatColor.GRAY + "spacing-blocks: distance between actors, in Minecraft blocks (0.5–128).");
         sender.sendMessage(ChatColor.GRAY + "Example: /mocap formation add battle warrior 3 5 2");
         sender.sendMessage(ChatColor.GRAY + "This example adds 15 actor elements using warrior, with 3 rows × 5 columns and 2-block spacing.");
