@@ -573,7 +573,7 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         String action = args[0].toLowerCase(Locale.ROOT);
         if (eq(action, "customize")) {
             if (args.length == 1 || eq(args[1], "help")) {
-                sender.sendMessage("Customize: names <scene> <comma-separated-names> | skins <scene> <comma-separated-profile-names> | name <scene> <element-index> <player-name> | equipment ...");
+                sender.sendMessage("Customize: names <scene> <comma-separated-names|auto> | skins <scene> <comma-separated-profile-names|auto> | name <scene> <element-index> <player-name> | equipment ...");
                 return;
             }
             action = args[1].toLowerCase(Locale.ROOT);
@@ -594,13 +594,28 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
 
     private void assignProfiles(CommandSender sender, String[] args, boolean skins) throws IOException {
         if (args.length < 3) {
-            usage(sender, "/mocap customize " + (skins ? "skins" : "names") + " <scene> <comma,separated,values>");
+            usage(sender, "/mocap customize " + (skins ? "skins" : "names") + " <scene> <comma,separated,values|auto>");
             return;
         }
         List<String> values = Arrays.stream(String.join(" ", Arrays.copyOfRange(args, 2, args.length)).split(","))
                 .map(String::trim).filter(s -> !s.isEmpty()).toList();
+        if (values.size() == 1 && List.of("auto", "random", "recorded").contains(values.get(0).toLowerCase(Locale.ROOT))) {
+            LinkedHashSet<String> candidates = new LinkedHashSet<>(scenes.knownProfiles());
+            Bukkit.getOnlinePlayers().stream().map(Player::getName).forEach(candidates::add);
+            if (candidates.isEmpty()) {
+                candidates.add("Steve");
+                candidates.add("Alex");
+            }
+            values = List.copyOf(candidates);
+            sender.sendMessage(ChatColor.GRAY + "Auto pool uses saved recording profile names, existing scene names/skin profiles, and online players.");
+        }
+        if (values.isEmpty()) {
+            usage(sender, "/mocap customize " + (skins ? "skins" : "names") + " <scene> <comma,separated,values|auto>");
+            return;
+        }
         scenes.assignRandomProfiles(args[1], values, skins);
-        sender.sendMessage("Saved randomized " + (skins ? "skin profiles" : "names") + " into scene ." + MocapSceneStore.normalizeSceneName(args[1]) + ".");
+        sender.sendMessage(ChatColor.GREEN + "Saved randomized " + (skins ? "skin profiles" : "names")
+                + " into scene ." + MocapSceneStore.normalizeSceneName(args[1]) + ". These assignments persist across playback and loops.");
     }
 
     private void formationCommand(CommandSender sender, String[] args) throws IOException {
@@ -1144,7 +1159,11 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             return filter(scenes.sceneElementSuggestions(args[base + 1]), args[base + 2]);
         }
         if (rel == 4 && action.equals("name")) return profileNameSuggestions(args[base + 3]);
-        if (rel == 3 && List.of("names", "skins").contains(action)) return profileNameSuggestions(args[base + 2]);
+        if (rel == 3 && List.of("names", "skins").contains(action)) {
+            List<String> values = new ArrayList<>(filter(List.of("auto", "random", "recorded"), args[base + 2]));
+            values.addAll(profileNameSuggestions(args[base + 2]));
+            return values.stream().distinct().limit(100).toList();
+        }
         return List.of();
     }
 
