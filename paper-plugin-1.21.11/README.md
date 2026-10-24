@@ -9,7 +9,15 @@ From the repository root run:
 Install the resulting JAR from paper-plugin-1.21.11/build/libs/ in the Paper server's plugins/ directory. Do not install it in Fabric's mods/ folder.
 
 ## Commands
-All commands except help require permission mocap.admin (default: operator).
+All management commands require permission mocap.admin (default: operator).
+
+### Paper-native movement recording
+- `/mocap recording start [<player|selector>] [<instant-save-name>]` — starts recording the executing player by default, or selected online players. TAB suggests `@a`, `@p`, `@s`, and online player names.
+- `/mocap recording stop [<id>]` — stops a recording; without an ID it resolves the sender's active recording where possible.
+- `/mocap recording save <name> [<id>]` — saves a stopped recording as `.mcmocap_rec` in the world's `mocap_files/recordings` directory.
+- `/mocap recording discard [<id>]` and `/mocap recording list [<id>]` — discard or inspect in-memory sessions.
+
+**Recording scope:** the Paper recorder captures per-tick position, rotation, and supported pose changes using the legacy Mocap v1 recording stream, which the bundled parser can read. It does not yet capture block edits, chat, inventory/equipment changes, damage, entities/mounts, or extension actions. Stopped sessions that are not saved are held in memory only and are lost on server/plugin restart.
 - /mocap recordings; /mocap scenes
 - /mocap play <recording|.scene> [loop]; /mocap playhere <recording|.scene> [loop]
 - /mocap list; /mocap stop <id>; /mocap stopall
