@@ -117,7 +117,10 @@ public final class MocapSceneStore {
                     String childName = getString(el, "name", null);
                     if (childName == null || childName.isBlank()) throw new IOException("Scene element is missing its name.");
                     List<Transform> childTransforms = append(transforms, transformFrom(el.has("transformations") && el.get("transformations").isJsonObject() ? el.getAsJsonObject("transformations") : null));
-                    String childPlayerName = firstNonBlank(getString(el, "player_name", null), playerName);
+                    // An explicit modifier on this scene element overrides inherited context.
+                    // Otherwise carry the parent override through every nested scene level.
+                    String elementPlayerName = getString(el, "player_name", null);
+                    String childPlayerName = firstNonBlank(elementPlayerName, playerName);
                     String childSkin = skinProfileFrom(el.get("player_skin"));
                     if (childSkin == null) childSkin = skinProfile;
                     int childDelayTicks = inheritedDelayTicks + delayTicks(el.get("time"));
