@@ -693,7 +693,11 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
                     sender.sendMessage(groups.isEmpty() ? "No " + kind + " groups saved." : ChatColor.GOLD + kind.toUpperCase(Locale.ROOT) + " GROUPS: " + String.join(", ", groups));
                     return;
                 }
-                if (args.length > 5) { usage(sender, "/mocap " + kind + " list <group> [<subgroup>] [<page>|page:<page>]"); return; }
+                if (args.length > 5) {
+                    usage(sender, "/mocap " + kind + " list <group> [<subgroup>] [<page>]");
+                    sender.sendMessage(ChatColor.GRAY + "For all subgroups, use page:<number> in place of <subgroup>; for one subgroup, use a numeric final page argument.");
+                    return;
+                }
                 String groupName = args[2];
                 String subgroup = null;
                 int page = 1;
@@ -857,7 +861,9 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             if (action.equals("list")) {
                 try {
                     List<String> options = new ArrayList<>(profileLibraries.listSubgroups(kind, args[2]));
-                    options.add("page:1");
+                    List<ProfileLibraryStore.Entry> allEntries = profileLibraries.list(kind, args[2]);
+                    int pages = Math.max(1, (allEntries.size() + 59) / 60);
+                    for (int page = 1; page <= pages; page++) options.add("page:" + page);
                     return filter(options, args[3]);
                 } catch (IOException ignored) { return List.of("<subgroup-name>", "page:1"); }
             }
