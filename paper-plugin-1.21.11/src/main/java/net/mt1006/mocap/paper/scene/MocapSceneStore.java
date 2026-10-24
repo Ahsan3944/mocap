@@ -13,6 +13,7 @@ public final class MocapSceneStore {
     private static final int MAX_SCENE_BYTES = 4 * 1024 * 1024;
     public static final int MAX_ELEMENTS = 5000;
     public static final int MAX_FORMATION_ADDITIONS = 1000;
+    public static final int MAX_FORMATION_GROUP_ACTORS = 500;
     private static final int MAX_NESTED_DEPTH = 32;
     private static final Pattern SAFE_NAME = Pattern.compile("[A-Za-z0-9][A-Za-z0-9_.-]{0,63}");
     private final Path recordingDir;
@@ -576,8 +577,9 @@ public final class MocapSceneStore {
         if (anchor == null || !finiteCoordinate(anchor.getX()) || !finiteCoordinate(anchor.getY()) || !finiteCoordinate(anchor.getZ())) {
             throw new IOException("Select a valid placement anchor with /mocap formation tool before creating a Formation Group.");
         }
-        if (rows < 1 || columns < 1 || (long) rows * columns > MAX_FORMATION_ADDITIONS) {
-            throw new IOException("Rows × columns must be between 1 and " + MAX_FORMATION_ADDITIONS + ".");
+        if (rows < 1 || columns < 1 || (long) rows * columns > MAX_FORMATION_GROUP_ACTORS) {
+            throw new IOException("A playable Formation Group must contain between 1 and " + MAX_FORMATION_GROUP_ACTORS
+                    + " actors, matching the current Paper playback mannequin limit.");
         }
         validateFormationGap(columnSpacing, "column-gap");
         validateFormationGap(rowSpacing, "row-gap");
