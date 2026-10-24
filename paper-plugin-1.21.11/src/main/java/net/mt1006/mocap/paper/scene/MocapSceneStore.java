@@ -606,7 +606,7 @@ public final class MocapSceneStore {
     }
 
     private static List<Transform> append(List<Transform> base, Transform extra) {
-        if (extra == Transform.IDENTITY || (extra.rotation() == 0 && extra.scale() == 1 && extra.x() == 0 && extra.y() == 0 && extra.z() == 0)) return base;
+        if (extra == Transform.IDENTITY || (extra.rotation() == 0 && extra.scale() == 1 && extra.x() == 0 && extra.y() == 0 && extra.z() == 0 && !extra.mirrorX() && !extra.mirrorZ())) return base;
         List<Transform> copy = new ArrayList<>(base);
         copy.add(extra);
         return List.copyOf(copy);
