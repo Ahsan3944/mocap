@@ -248,6 +248,7 @@ public final class PaperPlaybackManager {
         if (s == null) return false;
         for (Actor actor : s.actors) {
             actor.equipmentOverride = preset;
+            actor.armorRemovedOverride = false;
             EquipmentPresetStore.apply(actor.mannequin(), preset);
         }
         return true;
@@ -258,20 +259,61 @@ public final class PaperPlaybackManager {
         if (s == null || oneBasedActorIndex < 1 || oneBasedActorIndex > s.actors.size()) return false;
         Actor actor = s.actors.get(oneBasedActorIndex - 1);
         actor.equipmentOverride = preset;
+        actor.armorRemovedOverride = false;
         EquipmentPresetStore.apply(actor.mannequin(), preset);
         return true;
     }
 
+    /** Remove armor from every actor in the playback while preserving hand/off-hand items. */
+    public boolean removeArmor(String id) {
+        Session session = sessions.get(id);
+        if (session == null) return false;
+        for (Actor actor : session.actors) {
+            actor.armorRemovedOverride = true;
+            EquipmentPresetStore.removeArmor(actor.mannequin());
+        }
+        return true;
+    }
+
+    /** Remove armor from one one-based actor index in the selected playback. */
+    public boolean removeArmorFromActor(String id, int oneBasedActorIndex) {
+        Session session = sessions.get(id);
+        if (session == null || oneBasedActorIndex < 1 || oneBasedActorIndex > session.actors.size()) return false;
+        Actor actor = session.actors.get(oneBasedActorIndex - 1);
+        actor.armorRemovedOverride = true;
+        EquipmentPresetStore.removeArmor(actor.mannequin());
+        return true;
+    }
+
     public boolean randomizePresets(String id, String group) throws IOException {
-        Session s = sessions.get(id);
-        if (s == null) return false;
         List<String> names = equipment.list(group);
         if (names.isEmpty()) throw new IOException("No presets found in group " + group + ".");
+        return mixPresets(id, group, names);
+    }
+
+    /** Randomly assign one of the selected complete preset sets to each actor in the playback. */
+    public boolean mixPresets(String id, String group, List<String> selectedNames) throws IOException {
+        Session session = sessions.get(id);
+        if (session == null) return false;
+        if (selectedNames == null || selectedNames.size() < 2) {
+            throw new IOException("Mix requires at least two saved preset names from the same group.");
+        }
+        List<String> uniqueNames = selectedNames.stream().map(String::trim).filter(s -> !s.isEmpty()).distinct().toList();
+        if (uniqueNames.size() < 2) throw new IOException("Mix requires at least two different preset names.");
+        List<String> available = equipment.list(group);
+        List<EquipmentPresetStore.Preset> candidates = new ArrayList<>();
+        for (String name : uniqueNames) {
+            if (!available.contains(name)) {
+                throw new IOException("Preset '" + name + "' is not in equipment group '" + group + "'. Choose preset names from that group only.");
+            }
+            candidates.add(equipment.get(group, name));
+        }
         Random random = new Random();
-        for (Actor actor : s.actors) {
-            EquipmentPresetStore.Preset preset = equipment.get(group, names.get(random.nextInt(names.size())));
-            actor.equipmentOverride = preset;
-            EquipmentPresetStore.apply(actor.mannequin(), preset);
+        for (Actor actor : session.actors) {
+            EquipmentPresetStore.Preset selected = candidates.get(random.nextInt(candidates.size()));
+            actor.equipmentOverride = selected;
+            actor.armorRemovedOverride = false;
+            EquipmentPresetStore.apply(actor.mannequin(), selected);
         }
         return true;
     }
@@ -340,6 +382,7 @@ public final class PaperPlaybackManager {
         private int frameIndex = -1;
         private boolean started;
         private EquipmentPresetStore.Preset equipmentOverride;
+        private boolean armorRemovedOverride;
 
         private Actor(MocapSceneStore.ActorSpec spec, MocapRecordingParser.Recording recording, Mannequin mannequin,
                       String profileName, String displayName, double anchorX, double anchorY, double anchorZ) {
@@ -364,6 +407,7 @@ public final class PaperPlaybackManager {
             if (applyEquipment) applyEquipment(mannequin, frame.equipment());
             // User-selected presets override recorded equipment on every frame and after loops.
             if (equipmentOverride != null) EquipmentPresetStore.apply(mannequin, equipmentOverride);
+            if (armorRemovedOverride) EquipmentPresetStore.removeArmor(mannequin);
         }
 
         private void update(int tick) {
