@@ -154,6 +154,18 @@ class MocapSceneStoreTest {
     }
 
     @Test
+    void knownProfilesIncludeRecordedPlayersForRandomSkinAutocomplete() throws Exception {
+        MocapSceneStore store = new MocapSceneStore(tempDir);
+        Path recordings = tempDir.resolve("mocap_files").resolve("recordings");
+        var encoder = new net.mt1006.mocap.paper.recording.MocapRecordingEncoder(0, 64, 0, 0, 0, "OriginalPlayer");
+        Files.write(recordings.resolve("original_take.mcmocap_rec"), encoder.toByteArray());
+
+        assertTrue(store.knownProfiles().contains("OriginalPlayer"));
+        // The result is cached until the underlying recording/scene signature changes.
+        assertTrue(store.knownProfiles().contains("OriginalPlayer"));
+    }
+
+    @Test
     void sceneCopyNeverOverwritesExistingTarget() throws Exception {
         Path scenesDir = tempDir.resolve("mocap_files").resolve("scenes");
         Files.createDirectories(scenesDir);
