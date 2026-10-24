@@ -138,7 +138,7 @@ public final class ProfileLibraryStore {
             throw new IOException("Import text file must be between 1 byte and 512 KiB.");
         }
         String raw = Files.readString(source, java.nio.charset.StandardCharsets.UTF_8)
-                .replace("\\r", ",").replace("\\n", ",");
+                .replace("\r", ",").replace("\n", ",");
         return append ? add(kind, group, subgroup, List.of(raw)) : save(kind, group, subgroup, List.of(raw));
     }
 
