@@ -68,14 +68,14 @@ public final class MocapSceneStore {
 
     public List<ActorSpec> expand(String playableName) throws IOException {
         List<ActorSpec> result = new ArrayList<>();
-        expandInto(playableName, List.of(), null, null, new LinkedHashSet<>(), result, 0);
+        expandInto(playableName, List.of(), null, null, 0, new LinkedHashSet<>(), result, 0);
         if (result.isEmpty()) throw new IOException("The scene contains no playable recording actors.");
         if (result.size() > 500) throw new IOException("Paper safety limit is 500 active mannequins per playback.");
         return List.copyOf(result);
     }
 
     private void expandInto(String playableName, List<Transform> transforms, String playerName, String skinProfile,
-                            Set<String> activeScenes, List<ActorSpec> result, int depth) throws IOException {
+                            int inheritedDelayTicks, Set<String> activeScenes, List<ActorSpec> result, int depth) throws IOException {
         if (depth > MAX_NESTED_DEPTH) throw new IOException("Nested scene depth exceeds " + MAX_NESTED_DEPTH + ".");
         if (playableName == null || playableName.isBlank()) throw new IOException("Scene element name is empty.");
         if (playableName.startsWith(".")) {
@@ -97,7 +97,9 @@ public final class MocapSceneStore {
                     String childPlayerName = firstNonBlank(getString(el, "player_name", null), playerName);
                     String childSkin = skinProfileFrom(el.get("player_skin"));
                     if (childSkin == null) childSkin = skinProfile;
-                    expandInto(childName, childTransforms, childPlayerName, childSkin, activeScenes, result, depth + 1);
+                    int childDelayTicks = inheritedDelayTicks + delayTicks(el.get("time"));
+                    if (childDelayTicks > MocapRecordingParser.MAX_TICKS) throw new IOException("Scene delay exceeds the 10-hour safety limit.");
+                    expandInto(childName, childTransforms, childPlayerName, childSkin, childDelayTicks, activeScenes, result, depth + 1);
                     if (result.size() > 500) throw new IOException("Expanded scene exceeds the 500 mannequin Paper safety limit.");
                 }
             } finally {
@@ -106,7 +108,7 @@ public final class MocapSceneStore {
         } else {
             Path path = recordingPath(playableName);
             result.add(new ActorSpec(path, path.getFileName().toString().replace(".mcmocap_rec", ""),
-                    playerName, skinProfile, List.copyOf(transforms)));
+                    playerName, skinProfile, List.copyOf(transforms), inheritedDelayTicks));
         }
     }
 
@@ -572,6 +574,18 @@ public final class MocapSceneStore {
         return output;
     }
 
+    private static int delayTicks(JsonElement raw) throws IOException {
+        if (raw == null || !raw.isJsonObject()) return 0;
+        JsonObject time = raw.getAsJsonObject();
+        double startDelay = number(time, "start_delay", 0.0);
+        double waitOnStart = number(time, "wait_on_start", 0.0);
+        double seconds = startDelay + waitOnStart;
+        if (!Double.isFinite(seconds) || seconds < 0 || seconds > MocapRecordingParser.MAX_TICKS / 20.0) {
+            throw new IOException("Scene start delay must be finite and no longer than 10 hours.");
+        }
+        return (int)Math.round(seconds * 20.0);
+    }
+
     private static Transform transformFrom(JsonObject raw) {
         if (raw == null) return Transform.IDENTITY;
         double rotation = number(raw, "rotation", 0.0);
@@ -580,12 +594,15 @@ public final class MocapSceneStore {
             JsonObject scaleObj = raw.getAsJsonObject("scale");
             scale = number(scaleObj, "scene_scale", 1.0);
         }
+        String mirror = getString(raw, "mirror", "none").toLowerCase(Locale.ROOT);
+        boolean mirrorX = mirror.equals("x") || mirror.equals("xz");
+        boolean mirrorZ = mirror.equals("z") || mirror.equals("xz");
         double x = 0, y = 0, z = 0;
         if (raw.has("offset") && raw.get("offset").isJsonArray()) {
             JsonArray a = raw.getAsJsonArray("offset");
             if (a.size() == 3) { x = finite(a.get(0)); y = finite(a.get(1)); z = finite(a.get(2)); }
         }
-        return new Transform(rotation, scale, x, y, z);
+        return new Transform(rotation, scale, x, y, z, mirrorX, mirrorZ);
     }
 
     private static List<Transform> append(List<Transform> base, Transform extra) {
@@ -644,17 +661,23 @@ public final class MocapSceneStore {
         if (!nc.startsWith(nr)) throw new IOException("Resolved path leaves the Mocap data directory.");
     }
 
-    public record Transform(double rotation, double scale, double x, double y, double z) {
-        public static final Transform IDENTITY = new Transform(0, 1, 0, 0, 0);
+    public record Transform(double rotation, double scale, double x, double y, double z, boolean mirrorX, boolean mirrorZ) {
+        public static final Transform IDENTITY = new Transform(0, 1, 0, 0, 0, false, false);
         public org.bukkit.Location apply(org.bukkit.Location loc, double anchorX, double anchorY, double anchorZ) {
             double rx = loc.getX() - anchorX, rz = loc.getZ() - anchorZ;
+            if (mirrorX) rx = -rx;
+            if (mirrorZ) rz = -rz;
             double radians = Math.toRadians(rotation);
             double rotatedX = (rx * Math.cos(radians) - rz * Math.sin(radians)) * scale;
             double rotatedZ = (rx * Math.sin(radians) + rz * Math.cos(radians)) * scale;
+            float yaw = loc.getYaw() + (float)rotation;
+            if (mirrorX) yaw = -yaw;
+            if (mirrorZ) yaw = -(yaw + 90.0f) - 90.0f;
             return new org.bukkit.Location(loc.getWorld(), anchorX + rotatedX + x, anchorY + (loc.getY() - anchorY) * scale + y,
-                    anchorZ + rotatedZ + z, (float)(loc.getYaw() + rotation), loc.getPitch());
+                    anchorZ + rotatedZ + z, yaw, loc.getPitch());
         }
     }
 
-    public record ActorSpec(Path recordingPath, String recordingName, String playerName, String skinProfile, List<Transform> transforms) {}
+    public record ActorSpec(Path recordingPath, String recordingName, String playerName, String skinProfile,
+                            List<Transform> transforms, int delayTicks) {}
 }
