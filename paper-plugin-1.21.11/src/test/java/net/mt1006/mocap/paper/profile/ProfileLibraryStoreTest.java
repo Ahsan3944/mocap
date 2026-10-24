@@ -62,7 +62,7 @@ class ProfileLibraryStoreTest {
     void importsCommaAndNewlineSeparatedListsAndSupportsAppend() throws Exception {
         Path imports = tempDir.resolve("profile-libraries").resolve("imports");
         java.nio.file.Files.createDirectories(imports);
-        java.nio.file.Files.writeString(imports.resolve("roster.txt"), "Steve\\nAlex,UltraOP\\nBuilder");
+        java.nio.file.Files.writeString(imports.resolve("roster.txt"), "Steve\nAlex,UltraOP\nBuilder");
 
         ProfileLibraryStore store = new ProfileLibraryStore(tempDir);
         var saved = store.importFile("names", "soldiers", "main", "roster.txt", false);
