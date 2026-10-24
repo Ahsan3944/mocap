@@ -25,9 +25,6 @@ jobs:
           distribution: temurin
           java-version: '25'
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-
       - name: Assemble, verify, and publish complete source tree
         shell: bash
         run: |
@@ -68,6 +65,9 @@ jobs:
           published_sha="$(git -C "$GITHUB_WORKSPACE" rev-parse HEAD)"
           echo "PUBLISHED_SOURCE_SHA=$published_sha" >> "$GITHUB_ENV"
           git -C "$GITHUB_WORKSPACE" push origin HEAD:main
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Build Fabric and NeoForge variants
         run: ./gradlew --no-daemon --stacktrace :fabric:build :neoforge:build
