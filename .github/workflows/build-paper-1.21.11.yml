@@ -110,7 +110,7 @@ jobs:
 
           | Feature | Source implemented | Build passed | Automated test passed | Runtime test passed | Target/version | Notes |
           |---|---|---|---|---|---|---|
-          | Recording/playback regression | Partially | Yes | Partial | No | Paper 1.21.11 | Visual playback is implemented; the Paper plugin does not implement recording. Recorded block edits, chat, entity add/remove/mount, combat, and swing actions are consumed but not executed. |
+          | Recording/playback regression | Partial | Yes | Encoder-to-parser test plus parser tests | No | Paper 1.21.11 | Paper recording now captures player position, rotation, and supported poses to a Mocap v1-compatible file. Block edits, chat, inventory/equipment, damage, entity add/remove/mount, and extension actions are not recorded. Live server acceptance is still required. |
           | Random actor names and persistence | Yes, direct recording elements | Yes | No feature-specific test | No | Paper 1.21.11 | Saved to scene JSON; nested scene randomization is rejected. |
           | Individual actor renaming | Yes, direct recording elements | Yes | No feature-specific test | No | Paper 1.21.11 | Nested scene elements cannot be renamed individually by this command. |
           | Skin assignment | Partial | Yes | No feature-specific test | No | Paper 1.21.11 | Name-based Paper ResolvableProfile; custom PNG skins and embedded signed texture injection are not fully ported. |
