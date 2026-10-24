@@ -17,6 +17,7 @@ public final class MocapSceneStore {
     private static final Pattern SAFE_NAME = Pattern.compile("[A-Za-z0-9][A-Za-z0-9_.-]{0,63}");
     private final Path recordingDir;
     private final Path sceneDir;
+    private final Path formationDir;
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
     private String knownProfileSignature = "";
     private List<String> knownProfileCache = List.of();
@@ -25,8 +26,10 @@ public final class MocapSceneStore {
         Path mocap = worldRoot.resolve("mocap_files");
         recordingDir = mocap.resolve("recordings");
         sceneDir = mocap.resolve("scenes");
+        formationDir = mocap.resolve("formations");
         Files.createDirectories(recordingDir);
         Files.createDirectories(sceneDir);
+        Files.createDirectories(formationDir);
     }
 
     public Path recordingPath(String raw) throws IOException {
@@ -93,14 +96,15 @@ public final class MocapSceneStore {
 
     public List<ActorSpec> expand(String playableName) throws IOException {
         List<ActorSpec> result = new ArrayList<>();
-        expandInto(playableName, List.of(), null, null, 0, new LinkedHashSet<>(), result, 0);
+        expandInto(playableName, List.of(), List.of(), null, null, 0, new LinkedHashSet<>(), result, 0);
         if (result.isEmpty()) throw new IOException("The scene contains no playable recording actors.");
         if (result.size() > 500) throw new IOException("Paper safety limit is 500 active mannequins per playback.");
         return List.copyOf(result);
     }
 
-    private void expandInto(String playableName, List<Transform> transforms, String playerName, String skinProfile,
-                            int inheritedDelayTicks, Set<String> activeScenes, List<ActorSpec> result, int depth) throws IOException {
+    private void expandInto(String playableName, List<Transform> transforms, List<Transform> postTransforms,
+                            String playerName, String skinProfile, int inheritedDelayTicks,
+                            Set<String> activeScenes, List<ActorSpec> result, int depth) throws IOException {
         if (depth > MAX_NESTED_DEPTH) throw new IOException("Nested scene depth exceeds " + MAX_NESTED_DEPTH + ".");
         if (playableName == null || playableName.isBlank()) throw new IOException("Scene element name is empty.");
         if (playableName.startsWith(".")) {
@@ -113,6 +117,7 @@ public final class MocapSceneStore {
                 JsonArray entries = scene.getAsJsonArray("subscenes");
                 if (entries == null) throw new IOException("Scene is missing the subscenes list: ." + sceneName);
                 if (entries.size() > MAX_ELEMENTS) throw new IOException("Scene exceeds the element limit.");
+                List<Transform> childPostTransforms = append(postTransforms, globalOffsetTransform(scene));
                 for (JsonElement entry : entries) {
                     if (!entry.isJsonObject()) throw new IOException("Invalid scene element in ." + sceneName);
                     JsonObject el = entry.getAsJsonObject();
@@ -135,7 +140,7 @@ public final class MocapSceneStore {
                     if (childSkin == null) childSkin = skinProfile;
                     int childDelayTicks = inheritedDelayTicks + delayTicks(el.get("time"));
                     if (childDelayTicks > MocapRecordingParser.MAX_TICKS) throw new IOException("Scene delay exceeds the 10-hour safety limit.");
-                    expandInto(childName, childTransforms, childPlayerName, childSkin, childDelayTicks, activeScenes, result, depth + 1);
+                    expandInto(childName, childTransforms, childPostTransforms, childPlayerName, childSkin, childDelayTicks, activeScenes, result, depth + 1);
                     if (result.size() > 500) throw new IOException("Expanded scene exceeds the 500 mannequin Paper safety limit.");
                 }
             } finally {
@@ -143,8 +148,10 @@ public final class MocapSceneStore {
             }
         } else {
             Path path = recordingPath(playableName);
+            List<Transform> finalTransforms = new ArrayList<>(transforms);
+            finalTransforms.addAll(postTransforms);
             result.add(new ActorSpec(path, path.getFileName().toString().replace(".mcmocap_rec", ""),
-                    playerName, skinProfile, List.copyOf(transforms), inheritedDelayTicks));
+                    playerName, skinProfile, List.copyOf(finalTransforms), inheritedDelayTicks));
         }
     }
 
@@ -176,6 +183,7 @@ public final class MocapSceneStore {
         if (!Files.isRegularFile(file)) throw new IOException("Scene not found: ." + name);
         readScene(name); // don't remove a malformed or unsupported file accidentally
         Files.delete(file);
+        Files.deleteIfExists(formationPath(name));
     }
 
     public void addSceneElement(String rawSceneName, String rawPlayable, double waitOnStart,
@@ -536,6 +544,216 @@ public final class MocapSceneStore {
         recordingPath(playable);
         element.addProperty("player_name", playerName);
         writeScene(normalizeSceneName(sceneName), scene);
+    }
+
+    /**
+     * Create a named Formation Group and its backing scene from one saved player recording.
+     * The placement anchor is baked into the scene as a root-level post-transform so that the
+     * first actor begins at the selected position while every other actor keeps the formation offsets.
+     */
+    public void createFormationGroup(String rawGroupName, String rawRecordingName, int rows, int columns,
+                                     double columnSpacing, double rowSpacing,
+                                     org.bukkit.Location anchor) throws IOException {
+        String groupName = normalizeSceneName(rawGroupName);
+        String recordingName = normalizeFileName(rawRecordingName, ".mcmocap_rec");
+        if (anchor == null || !finiteCoordinate(anchor.getX()) || !finiteCoordinate(anchor.getY()) || !finiteCoordinate(anchor.getZ())) {
+            throw new IOException("Select a valid placement anchor with /mocap formation tool before creating a Formation Group.");
+        }
+        if (rows < 1 || columns < 1 || (long) rows * columns > MAX_FORMATION_ADDITIONS) {
+            throw new IOException("Rows × columns must be between 1 and " + MAX_FORMATION_ADDITIONS + ".");
+        }
+        validateFormationGap(columnSpacing, "column-gap");
+        validateFormationGap(rowSpacing, "row-gap");
+
+        Path groupFile = formationPath(groupName);
+        Path targetScene = scenePath(groupName);
+        if (Files.exists(groupFile)) throw new IOException("Formation Group already exists: " + groupName + ".");
+        if (Files.exists(targetScene)) throw new IOException("A scene with this name already exists: ." + groupName + ". Choose a different group name.");
+
+        Path sourcePath = recordingPath(recordingName);
+        MocapRecordingParser.Recording source = new MocapRecordingParser().parse(sourcePath);
+        if (source.frames().isEmpty()) throw new IOException("The selected source recording has no frames.");
+        if ((long) rows * columns > MAX_ELEMENTS) throw new IOException("Formation exceeds the scene's 5,000-element limit.");
+
+        double yaw = Math.toRadians(source.startYaw());
+        double rightX = -Math.cos(yaw), rightZ = -Math.sin(yaw);
+        double behindX = Math.sin(yaw), behindZ = -Math.cos(yaw);
+        JsonObject scene = new JsonObject();
+        scene.addProperty("version", 4);
+        JsonArray entries = new JsonArray();
+        scene.add("subscenes", entries);
+        JsonArray globalOffset = new JsonArray();
+        globalOffset.add(roundFormationOffset(anchor.getX() - source.startX()));
+        globalOffset.add(roundFormationOffset(anchor.getY() - source.startY()));
+        globalOffset.add(roundFormationOffset(anchor.getZ() - source.startZ()));
+        scene.add("mocap_global_offset", globalOffset);
+
+        for (int row = 0; row < rows; row++) {
+            for (int col = 0; col < columns; col++) {
+                double x = col * columnSpacing * rightX + row * rowSpacing * behindX;
+                double z = col * columnSpacing * rightZ + row * rowSpacing * behindZ;
+                JsonObject element = new JsonObject();
+                element.addProperty("name", recordingName);
+                if (x != 0 || z != 0) {
+                    JsonObject transformation = new JsonObject();
+                    JsonArray offset = new JsonArray();
+                    offset.add(roundFormationOffset(x));
+                    offset.add(0.0);
+                    offset.add(roundFormationOffset(z));
+                    transformation.add("offset", offset);
+                    element.add("transformations", transformation);
+                }
+                entries.add(element);
+            }
+        }
+
+        JsonObject group = new JsonObject();
+        group.addProperty("version", 1);
+        group.addProperty("group_name", groupName);
+        group.addProperty("scene_name", groupName);
+        group.addProperty("source_recording", recordingName);
+        group.addProperty("rows", rows);
+        group.addProperty("columns", columns);
+        group.addProperty("column_gap", columnSpacing);
+        group.addProperty("row_gap", rowSpacing);
+        group.addProperty("anchor_world", anchor.getWorld() == null ? "" : anchor.getWorld().getName());
+        JsonArray anchorPosition = new JsonArray();
+        anchorPosition.add(anchor.getX()); anchorPosition.add(anchor.getY()); anchorPosition.add(anchor.getZ());
+        group.add("anchor", anchorPosition);
+
+        writeScene(groupName, scene);
+        try {
+            writeFormationGroup(groupName, group, false);
+        } catch (IOException e) {
+            try { Files.deleteIfExists(targetScene); } catch (IOException suppressed) { e.addSuppressed(suppressed); }
+            throw e;
+        }
+    }
+
+    public List<String> listFormationGroups() {
+        return listFiles(formationDir, ".json", false);
+    }
+
+    public JsonObject formationGroupInfo(String rawGroupName) throws IOException {
+        return readFormationGroup(normalizeSceneName(rawGroupName));
+    }
+
+    public String formationGroupScene(String rawGroupName) throws IOException {
+        JsonObject group = readFormationGroup(normalizeSceneName(rawGroupName));
+        String scene = getString(group, "scene_name", null);
+        if (scene == null) throw new IOException("Formation Group metadata is missing its scene name.");
+        readScene(scene);
+        return normalizeSceneName(scene);
+    }
+
+    public void deleteFormationGroup(String rawGroupName) throws IOException {
+        String groupName = normalizeSceneName(rawGroupName);
+        JsonObject group = readFormationGroup(groupName);
+        String sceneName = getString(group, "scene_name", groupName);
+        Path scene = scenePath(sceneName);
+        if (Files.exists(scene)) removeScene(sceneName);
+        Files.deleteIfExists(formationPath(groupName));
+    }
+
+    /** Move every expanded actor in a scene as a unit by changing the scene's final/root translation. */
+    public void moveSceneTo(String rawSceneName, org.bukkit.Location target) throws IOException {
+        String sceneName = normalizeSceneName(rawSceneName);
+        if (target == null || !finiteCoordinate(target.getX()) || !finiteCoordinate(target.getY()) || !finiteCoordinate(target.getZ())) {
+            throw new IOException("A valid target location must be selected with the placement tool.");
+        }
+        List<ActorSpec> actors = expand("." + sceneName);
+        ActorSpec first = actors.get(0);
+        MocapRecordingParser.Recording recording = new MocapRecordingParser().parse(first.recordingPath());
+        MocapRecordingParser.Frame frame = recording.frames().get(0);
+        org.bukkit.Location current = new org.bukkit.Location(target.getWorld(), frame.x(), frame.y(), frame.z(), frame.yaw(), frame.pitch());
+        for (Transform transform : first.transforms()) {
+            current = transform.apply(current, recording.startX(), recording.startY(), recording.startZ());
+        }
+        double dx = target.getX() - current.getX();
+        double dy = target.getY() - current.getY();
+        double dz = target.getZ() - current.getZ();
+
+        JsonObject scene = readScene(sceneName);
+        JsonArray old = scene.has("mocap_global_offset") && scene.get("mocap_global_offset").isJsonArray()
+                ? scene.getAsJsonArray("mocap_global_offset") : new JsonArray();
+        double oldX = old.size() > 0 ? finite(old.get(0)) : 0;
+        double oldY = old.size() > 1 ? finite(old.get(1)) : 0;
+        double oldZ = old.size() > 2 ? finite(old.get(2)) : 0;
+        JsonArray next = new JsonArray();
+        double x = roundFormationOffset(oldX + dx), y = roundFormationOffset(oldY + dy), z = roundFormationOffset(oldZ + dz);
+        next.add(x); next.add(y); next.add(z);
+        if (Math.abs(x) < 0.0001 && Math.abs(y) < 0.0001 && Math.abs(z) < 0.0001) scene.remove("mocap_global_offset");
+        else scene.add("mocap_global_offset", next);
+        writeScene(sceneName, scene);
+        updateFormationGroupAnchor(sceneName, target);
+    }
+
+    public static boolean finiteCoordinate(double value) {
+        return Double.isFinite(value) && Math.abs(value) <= 30_000_000;
+    }
+
+    private static void validateFormationGap(double value, String label) throws IOException {
+        if (!Double.isFinite(value) || value < 0 || value > 128) throw new IOException(label + " must be between 0 and 128 blocks.");
+    }
+
+    private Path formationPath(String rawName) throws IOException {
+        String name = normalizeSceneName(rawName);
+        Path file = formationDir.resolve(name + ".json").normalize();
+        ensureWithin(formationDir, file);
+        return file;
+    }
+
+    private JsonObject readFormationGroup(String name) throws IOException {
+        Path file = formationPath(name);
+        if (!Files.isRegularFile(file)) throw new IOException("Formation Group not found: " + name);
+        if (Files.size(file) <= 0 || Files.size(file) > 128 * 1024) throw new IOException("Formation Group metadata size is outside safety limits.");
+        try {
+            JsonElement parsed = JsonParser.parseString(Files.readString(file, StandardCharsets.UTF_8));
+            if (!parsed.isJsonObject()) throw new IOException("Formation Group metadata must be a JSON object.");
+            JsonObject group = parsed.getAsJsonObject();
+            if (!group.has("version") || group.get("version").getAsInt() != 1) throw new IOException("Unsupported Formation Group metadata version.");
+            return group;
+        } catch (JsonParseException | IllegalStateException e) {
+            throw new IOException("Formation Group metadata is malformed: " + e.getMessage(), e);
+        }
+    }
+
+    private void writeFormationGroup(String name, JsonObject group, boolean replace) throws IOException {
+        Path target = formationPath(name);
+        if (!replace && Files.exists(target)) throw new IOException("Formation Group already exists: " + name + ".");
+        Path temporary = target.resolveSibling(target.getFileName() + ".tmp");
+        try {
+            Files.writeString(temporary, gson.toJson(group), StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+            try {
+                if (replace) Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+                else Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException e) {
+                if (replace) Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
+                else Files.move(temporary, target);
+            }
+        } catch (IOException e) {
+            try { Files.deleteIfExists(temporary); } catch (IOException suppressed) { e.addSuppressed(suppressed); }
+            throw e;
+        }
+    }
+
+    private void updateFormationGroupAnchor(String sceneName, org.bukkit.Location anchor) throws IOException {
+        Path path = formationPath(sceneName);
+        if (!Files.isRegularFile(path)) return;
+        JsonObject group = readFormationGroup(sceneName);
+        JsonArray position = new JsonArray();
+        position.add(anchor.getX()); position.add(anchor.getY()); position.add(anchor.getZ());
+        group.add("anchor", position);
+        group.addProperty("anchor_world", anchor.getWorld() == null ? "" : anchor.getWorld().getName());
+        writeFormationGroup(sceneName, group, true);
+    }
+
+    private static Transform globalOffsetTransform(JsonObject scene) {
+        JsonElement raw = scene.get("mocap_global_offset");
+        if (raw == null || !raw.isJsonArray() || raw.getAsJsonArray().size() != 3) return Transform.IDENTITY;
+        JsonArray offset = raw.getAsJsonArray();
+        return new Transform(0, 1, 0, finite(offset.get(0)), finite(offset.get(1)), finite(offset.get(2)), false, false);
     }
 
     /** Backwards-compatible equal-spacing overload. */
