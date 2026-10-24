@@ -62,7 +62,7 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
                 case "info" -> info(sender);
                 case "recording" -> recordingCommand(sender, args);
                 case "recordings" -> recordingsCommand(sender, args);
-                case "scene", "scenes" -> sceneCommand(sender, args);
+                case "scenes" -> sceneCommand(sender, args);
                 case "playback" -> playbackCommand(sender, args);
                 case "settings" -> settingsCommand(sender, args);
                 case "customize" -> customizeCommand(sender, args);
@@ -1076,24 +1076,6 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
                 + (loop ? ChatColor.GREEN + " (looping)" : "") + ChatColor.GRAY + ". The first actor is anchored here; the rest keep their saved offsets.");
     }
 
-    private static void formationHelp(CommandSender sender) {
-        sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "          FORMATION BUILDER");
-        sender.sendMessage(ChatColor.WHITE + "/mocap formation add <scene-name> <recording-name> <rows:1-1000> <columns:1-1000> <column-gap:0-128> <row-gap:0-128>");
-        sender.sendMessage(ChatColor.GRAY + "Legacy: /mocap formation add <scene> <recording> <rows> <columns> <spacing> (same gap in both directions).");
-        sender.sendMessage(ChatColor.WHITE + "/mocap formation tool");
-        sender.sendMessage(ChatColor.WHITE + "/mocap formation paste <recording-name|.scene-name> [loop]");
-        sender.sendMessage(ChatColor.WHITE + "/mocap paste <recording-name|.scene-name> [loop]");
-        sender.sendMessage(ChatColor.YELLOW + "ARGUMENT GUIDE");
-        sender.sendMessage(ChatColor.GRAY + "scene-name: existing destination scene; recording-name: existing saved recording copied into every grid position.");
-        sender.sendMessage(ChatColor.GRAY + "rows: rows behind the source character. columns: actors to the source character's right, relative to the saved starting yaw.");
-        sender.sendMessage(ChatColor.GRAY + "column-gap: side-to-side distance. row-gap: front-to-back distance. These are independent.");
-        sender.sendMessage(ChatColor.GRAY + "The original source actor stays at row 1/column 1 at zero offset; it is not centered.");
-        sender.sendMessage(ChatColor.GRAY + "Placement tool: receive the named Blaze Rod, right-click the target block, then paste a recording or full .scene at that anchor.");
-        sender.sendMessage(ChatColor.GRAY + "Rows × columns are limited to 1,000 additions per formation; each Scene is limited to 5,000 elements.");
-        sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    }
-
     private static int parseBoundedInteger(String raw, String argument, int min, int max) throws IOException {
         final int value;
         try { value = Integer.parseInt(raw); }
@@ -1377,15 +1359,23 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         if (root.equals("playback")) return playbackSuggestions(args);
         if (root.equals("customize")) return customizeSuggestions(args, 1);
         if (root.equals("formation")) {
-            if (args.length == 2) return filter(List.of("help", "add", "tool", "paste"), args[1]);
+            if (args.length == 2) return filter(List.of("help", "tool", "create", "list", "info", "play", "delete", "add"), args[1]);
+            if (args.length == 3 && args[1].equalsIgnoreCase("create")) return filterOrHint(List.of(), args[2], "<new-group-name>");
+            if (args.length == 4 && args[1].equalsIgnoreCase("create")) return recordingNameSuggestions(args[3]);
+            if (args.length == 5 && args[1].equalsIgnoreCase("create")) return filterOrHint(List.of(), args[4], "<rows:1-1000>");
+            if (args.length == 6 && args[1].equalsIgnoreCase("create")) return filterOrHint(List.of(), args[5], "<columns:1-1000>");
+            if (args.length == 7 && args[1].equalsIgnoreCase("create")) return filterOrHint(List.of(), args[6], "<column-gap:0-128; side-to-side>");
+            if (args.length == 8 && args[1].equalsIgnoreCase("create")) return filterOrHint(List.of(), args[7], "<row-gap:0-128; front-to-back>");
+            if (args.length == 3 && List.of("info", "play", "delete").contains(args[1].toLowerCase(Locale.ROOT))) {
+                return filter(scenes.listFormationGroups(), args[2]);
+            }
+            if (args.length == 4 && args[1].equalsIgnoreCase("play")) return filter(List.of("loop"), args[3]);
             if (args.length == 3 && args[1].equalsIgnoreCase("add")) return sceneNameSuggestions(args[2]);
             if (args.length == 4 && args[1].equalsIgnoreCase("add")) return recordingNameSuggestions(args[3]);
             if (args.length == 5 && args[1].equalsIgnoreCase("add")) return filterOrHint(List.of(), args[4], "<rows:1-1000>");
             if (args.length == 6 && args[1].equalsIgnoreCase("add")) return filterOrHint(List.of(), args[5], "<columns:1-1000>");
-            if (args.length == 7 && args[1].equalsIgnoreCase("add")) return filterOrHint(List.of(), args[6], "<column-gap:0-128; side-to-side>");
-            if (args.length == 8 && args[1].equalsIgnoreCase("add")) return filterOrHint(List.of(), args[7], "<row-gap:0-128; front-to-back>");
-            if (args.length == 3 && args[1].equalsIgnoreCase("paste")) return playableNameSuggestions(args[2]);
-            if (args.length == 4 && args[1].equalsIgnoreCase("paste")) return filter(List.of("loop"), args[3]);
+            if (args.length == 7 && args[1].equalsIgnoreCase("add")) return filterOrHint(List.of(), args[6], "<column-gap:0-128>");
+            if (args.length == 8 && args[1].equalsIgnoreCase("add")) return filterOrHint(List.of(), args[7], "<row-gap:0-128>");
             return List.of();
         }
         if (root.equals("paste")) {
@@ -1394,12 +1384,6 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             if (args.length == 4) return filterOrHint(List.of(), args[3], "<y:world-height>");
             if (args.length == 5) return filterOrHint(List.of(), args[4], "<z:-30000000..30000000>");
             if (args.length == 6) return filter(List.of("loop"), args[5]);
-            return List.of();
-        }
-        if (root.equals("copy")) {
-            if (args.length == 2) return filter(List.of("help", "scene"), args[1]);
-            if (args.length == 3 && args[1].equalsIgnoreCase("scene")) return sceneNameSuggestions(args[2]);
-            if (args.length == 4 && args[1].equalsIgnoreCase("scene")) return filterOrHint(List.of(), args[3], "<new-scene-name>");
             return List.of();
         }
         if (root.equals("settings")) return settingsSuggestions(args);
@@ -1569,26 +1553,39 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         return List.of();
     }
 
-    private List<String> playbackSuggestions(String[] args, boolean upstreamSyntax) {
-        if (args.length == 2) {
-            return filter(upstreamSyntax
-                    ? List.of("help", "start", "stop", "stop_all", "modifiers", "list")
-                    : List.of("help", "start", "list", "stop", "stopall", "freeze", "unfreeze", "end-freeze", "low-lag", "nametags"), args[1]);
-        }
+    private List<String> playbackSuggestions(String[] args) {
+        if (args.length == 2) return filter(List.of("help", "start", "play", "list", "stop", "stopall", "stop_all",
+                "freeze", "unfreeze", "end-freeze", "low-lag", "nametags", "playhere", "modifiers"), args[1]);
         String action = args[1].toLowerCase(Locale.ROOT);
-        if (args.length == 3 && action.equals("start")) return playableNameSuggestions(args[2]);
+        if (args.length == 3 && List.of("start", "play", "playhere").contains(action)) return playableNameSuggestions(args[2]);
         if (args.length == 3 && List.of("stop", "freeze", "unfreeze", "end-freeze", "low-lag").contains(action)) return playbackIdSuggestions(args[2]);
         if (args.length == 3 && action.equals("nametags")) {
             List<String> values = new ArrayList<>(filter(List.of("hide", "show"), args[2]));
             values.addAll(playbackIdSuggestions(args[2]));
             return values.stream().distinct().limit(100).toList();
         }
-        if (args.length == 3 && action.equals("stop_all")) return filter(List.of("including_others", "excluding_others"), args[2]);
-        if (upstreamSyntax && args.length == 4 && action.equals("start")) return profileNameSuggestions(args[3]);
-        if (upstreamSyntax && args.length == 5 && action.equals("start")) return filter(List.of("skin_from_player", "skin_from_file", "skin_from_mineskin", "default"), args[4]);
-        if (upstreamSyntax && args.length == 6 && action.equals("start")
-                && (args[4].equalsIgnoreCase("skin_from_player") || args[4].equalsIgnoreCase("from_player"))) return profileNameSuggestions(args[5]);
-        if (args.length == 4 && action.equals("start") && !upstreamSyntax) return filter(List.of("loop"), args[3]);
+        if (args.length == 3 && action.equals("start") || args.length == 3 && action.equals("play")) {
+            return filter(List.of("loop", "skin_from_player", "<player-name>"), args[2]);
+        }
+        if (args.length == 4 && (action.equals("start") || action.equals("play"))) {
+            if (args[3].equalsIgnoreCase("skin_from_player") || args[3].equalsIgnoreCase("from_player")) {
+                return profileNameSuggestions("");
+            }
+            List<String> values = new ArrayList<>(filter(List.of("loop", "skin_from_player"), args[3]));
+            values.addAll(profileNameSuggestions(args[3]));
+            return values.stream().distinct().limit(100).toList();
+        }
+        if (args.length == 5 && (action.equals("start") || action.equals("play"))) {
+            if (args[3].equalsIgnoreCase("skin_from_player") || args[3].equalsIgnoreCase("from_player")) {
+                return profileNameSuggestions(args[4]);
+            }
+            return filter(List.of("skin_from_player", "loop"), args[4]);
+        }
+        if (args.length == 6 && (action.equals("start") || action.equals("play"))) {
+            if (args[4].equalsIgnoreCase("skin_from_player") || args[4].equalsIgnoreCase("from_player")) {
+                return filter(List.of("loop"), args[5]);
+            }
+        }
         if (args.length == 4 && action.equals("low-lag")) return filter(List.of("on", "off"), args[3]);
         if (args.length == 4 && action.equals("nametags")) {
             if (args[2].equalsIgnoreCase("hide") || args[2].equalsIgnoreCase("show")) return playbackIdSuggestions(args[3]);
