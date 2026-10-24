@@ -1,0 +1,113 @@
+subprojects
+{
+	apply plugin: "java"
+	java.toolchain.languageVersion = JavaLanguageVersion.of(java_version)
+
+	java
+	{
+		withSourcesJar()
+	}
+
+	base
+	{
+		archivesName = "${mod_jar_name}-${project.name.toUpperCase()}-${minecraft_version}"
+	}
+
+	processResources
+	{
+		var replaceProperties =
+		[
+			"mod_name"                  : mod_name,
+			"mod_jar_name"              : mod_jar_name,
+			"mod_id"                    : mod_id,
+			"mod_group"                 : mod_group,
+			"mod_author"                : mod_author,
+			"version"                   : version,
+			"license"                   : license,
+			"homepage"                  : homepage,
+			"source_url"                : source_url,
+			"issue_tracker"             : issue_tracker,
+			"mod_description"           : mod_description,
+			"minecraft_version"         : minecraft_version,
+			"java_version"              : java_version,
+			"version_range_fabric"      : version_range_fabric,
+			"version_range_neoforge"    : version_range_neoforge,
+			"fabric_loader_version"     : fabric_loader_version,
+			"fabric_api_version"        : fabric_api_version,
+			"neoforge_version"          : neoforge_version,
+		]
+
+		filesMatching(["pack.mcmeta", "fabric.mod.json", "META-INF/neoforge.mods.toml", "*.mixins.json"])
+		{
+			expand replaceProperties
+		}
+		inputs.properties replaceProperties
+	}
+
+	tasks.withType(JavaCompile).configureEach { it.options.encoding = "UTF-8" }
+
+	if (project.name != "common")
+	{
+		dependencies
+		{
+			compileOnly project(":common")
+		}
+
+		processResources { from project(":common").sourceSets.main.resources }
+		tasks.named("compileJava", JavaCompile) { source project(":common").sourceSets.main.allSource }
+		tasks.named("sourcesJar", Jar) { from project(":common").sourceSets.main.allSource }
+	}
+
+	project.sourceSets.main.java.srcDirs.each((File srcDir) ->
+	{
+		File javaDir = new File(project.projectDir, "src/main/java");
+		File generatedDir = new File(project.projectDir, "src/main/generated");
+		generatedDir.mkdir();
+
+		fileTree(srcDir).visit((FileTreeElement file) ->
+		{
+			String path = file.getPath()
+			if (!file.isDirectory()
+					|| !path.contains("net/mt1006/mocap")
+					|| path.contains("net/mt1006/mocap/api/v1")
+					|| (project.name != "common" && (path == "net/mt1006/mocap" || path == "net/mt1006/mocap/mixin")))
+			{
+				return
+			}
+
+			String packagePath = javaDir.relativePath(file.file)
+			String packageInfoStr =
+					"@ApiStatus.Internal\n" +
+					"package ${packagePath.replace('/', '.')};\n\n" +
+					"import org.jetbrains.annotations.ApiStatus;\n"
+
+			File dir = new File(generatedDir, packagePath)
+			dir.mkdirs()
+
+			File packageInfoFile = new File(dir, "package-info.java")
+			if (!packageInfoFile.exists() || packageInfoStr != packageInfoFile.getText("UTF-8"))
+			{
+				packageInfoFile.write(packageInfoStr, "UTF-8")
+				println("Generating package info for ${packagePath}")
+			}
+		})
+	})
+
+	project.sourceSets.main.java.srcDirs += ["src/main/generated"]
+}
+
+
+// Builds one installable archive containing both loader descriptors and both loader entrypoints.
+// Fabric and NeoForge each load only their own metadata; common classes are included once.
+tasks.register("universalJar", Jar)
+{
+	archiveBaseName.set("${mod_jar_name}-UNIVERSAL")
+	archiveVersion.set("${version}+mc${minecraft_version}")
+	archiveExtension.set("jar")
+	destinationDirectory.set(layout.buildDirectory.dir("libs"))
+	dependsOn(":fabric:jar", ":neoforge:jar")
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+	from({ zipTree(project(":fabric").tasks.named("jar").get().archiveFile.get().asFile) })
+	from({ zipTree(project(":neoforge").tasks.named("jar").get().archiveFile.get().asFile) })
+	exclude("META-INF/MANIFEST.MF")
+}
