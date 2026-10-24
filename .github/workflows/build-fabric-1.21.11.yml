@@ -83,6 +83,8 @@ jobs:
           print("Validated Fabric metadata:", meta.get("version"), "Minecraft:", mc)
           PY
           echo "Validated archive: $fabric_jar"
+          sha256sum "$fabric_jar" > "$fabric_jar.sha256"
+          sha256sum -c "$fabric_jar.sha256"
 
       - name: Upload verified Fabric JAR
         uses: actions/upload-artifact@v4
@@ -92,6 +94,7 @@ jobs:
           retention-days: 90
           path: |
             fabric/build/libs/*.jar
+            fabric/build/libs/*.jar.sha256
             !**/*-sources.jar
             !**/*-dev.jar
             !**/*-plain.jar
@@ -104,5 +107,7 @@ jobs:
           set -euo pipefail
           fabric_jar="$(find fabric/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-dev.jar' ! -name '*-plain.jar' -size +10k -print -quit)"
           test -n "$fabric_jar"
+          test -s "$fabric_jar.sha256"
+          sha256sum -c "$fabric_jar.sha256"
           tag="mocap-fabric-1.21.11-uop1-${BUILD_SOURCE_SHA:0:7}"
-          gh release create "$tag" --target "$BUILD_SOURCE_SHA" --title "Mocap Fabric 1.21.11 — UltraOP feature port" --notes "Built from the pinned official 1.21.11 source with feature backports from the 26.1 core. Java compilation, Fabric metadata, and JAR integrity passed. Live Minecraft regression and performance tests are still required." --prerelease "$fabric_jar"
+          gh release create "$tag" --target "$BUILD_SOURCE_SHA" --title "Mocap Fabric 1.21.11 — UltraOP feature port" --notes "Built from the pinned official 1.21.11 source with feature backports from the 26.1 core. Java compilation, Fabric metadata, JAR integrity, and SHA-256 manifest checks passed. Live Minecraft regression and performance tests are still required." --prerelease "$fabric_jar" "$fabric_jar.sha256"
