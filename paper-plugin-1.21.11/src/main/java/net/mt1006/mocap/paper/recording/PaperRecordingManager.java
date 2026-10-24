@@ -5,13 +5,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -75,7 +71,7 @@ public final class PaperRecordingManager {
             }
             try {
                 recordTick(session, player);
-                if (session.ticks >= MAX_RECORDING_TICKS || session.bytes.size() >= MAX_RECORDING_BYTES) {
+                if (session.ticks >= MAX_RECORDING_TICKS || session.encoder.size() >= MAX_RECORDING_BYTES) {
                     finish(session);
                     plugin.getLogger().warning("Mocap recording " + session.id + " reached the Paper safety limit and was stopped.");
                 }
@@ -91,10 +87,15 @@ public final class PaperRecordingManager {
         if (!Double.isFinite(now.getX()) || !Double.isFinite(now.getY()) || !Double.isFinite(now.getZ())) {
             throw new IOException("Player position was not finite.");
         }
-        DataOutputStream out = new DataOutputStream(session.bytes);
-        // Action 0 is NEXT_TICK in the Mocap v1 stream.
-        out.writeByte(0);
+        session.encoder.nextTick();
         session.ticks++;
+
+        String pose = player.getPose().name();
+        int poseId = poseId(pose);
+        if (poseId > 0 && !pose.equals(session.lastPose)) {
+            session.encoder.pose(poseId);
+            session.lastPose = pose;
+        }
 
         double dx = now.getX() - session.lastX;
         double dy = now.getY() - session.lastY;
@@ -104,21 +105,14 @@ public final class PaperRecordingManager {
         boolean moved = Math.abs(dx) > 1.0e-7 || Math.abs(dy) > 1.0e-7 || Math.abs(dz) > 1.0e-7;
         boolean rotated = Math.abs(yaw - session.lastYaw) > 1.0e-4 || Math.abs(pitch - session.lastPitch) > 1.0e-4;
         if (moved || rotated) {
-            // Action 1 is MOVEMENT_LEGACY: delta XYZ, pitch, yaw, on-ground.
-            out.writeByte(1);
-            out.writeDouble(dx);
-            out.writeDouble(dy);
-            out.writeDouble(dz);
-            out.writeFloat(pitch);
-            out.writeFloat(yaw);
-            out.writeBoolean(player.isOnGround());
+            session.encoder.movement(dx, dy, dz, pitch, yaw, player.isOnGround());
             session.lastX = now.getX();
             session.lastY = now.getY();
             session.lastZ = now.getZ();
             session.lastYaw = yaw;
             session.lastPitch = pitch;
         }
-        if (session.bytes.size() > MAX_RECORDING_BYTES) {
+        if (session.encoder.size() > MAX_RECORDING_BYTES) {
             throw new IOException("Recording exceeded the 16 MiB safety limit.");
         }
     }
@@ -234,14 +228,10 @@ public final class PaperRecordingManager {
         Path target = recordingsDirectory.resolve(name + ".mcmocap_rec").normalize();
         if (!target.startsWith(recordingsDirectory)) throw new IOException("Recording path escapes the recordings folder.");
         if (Files.exists(target)) throw new IOException("Recording already exists: " + name + ". Choose a different name.");
-        Path temporary = target.resolveSibling(target.getFileName() + ".tmp");
+        Path temporary = target.resolveSibling(target.getFileName() + "." + UUID.randomUUID() + ".tmp");
         try {
-            Files.write(temporary, session.bytes.toByteArray(), StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
-            try {
-                Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE);
-            } catch (AtomicMoveNotSupportedException e) {
-                Files.move(temporary, target);
-            }
+            Files.write(temporary, session.encoder.toByteArray(), StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+            Files.move(temporary, target);
         } catch (IOException e) {
             try { Files.deleteIfExists(temporary); } catch (IOException cleanup) { e.addSuppressed(cleanup); }
             throw e;
@@ -269,10 +259,11 @@ public final class PaperRecordingManager {
         private final UUID playerId;
         private final String playerName;
         private final String instantSaveName;
-        private final ByteArrayOutputStream bytes = new ByteArrayOutputStream(256);
+        private final MocapRecordingEncoder encoder;
         private long ticks;
         private double lastX, lastY, lastZ;
         private float lastYaw, lastPitch;
+        private String lastPose = "STANDING";
 
         private Session(String id, Player player, String instantSaveName) throws IOException {
             this.id = id;
@@ -282,11 +273,30 @@ public final class PaperRecordingManager {
             Location start = player.getLocation();
             lastX = start.getX(); lastY = start.getY(); lastZ = start.getZ();
             lastYaw = start.getYaw(); lastPitch = start.getPitch();
-            DataOutputStream out = new DataOutputStream(bytes);
-            // Legacy Mocap v1 header: version, XYZ doubles, yaw float, pitch float.
-            out.writeByte(1);
-            out.writeDouble(lastX); out.writeDouble(lastY); out.writeDouble(lastZ);
-            out.writeFloat(lastYaw); out.writeFloat(lastPitch);
+            encoder = new MocapRecordingEncoder(lastX, lastY, lastZ, lastYaw, lastPitch);
         }
+    }
+
+    private static int poseId(String pose) {
+        return switch (pose) {
+            case "STANDING" -> 1;
+            case "FALL_FLYING" -> 2;
+            case "SLEEPING" -> 3;
+            case "SWIMMING" -> 4;
+            case "SPIN_ATTACK" -> 5;
+            case "CROUCHING" -> 6;
+            case "DYING" -> 7;
+            case "LONG_JUMPING" -> 8;
+            case "CROAKING" -> 9;
+            case "USING_TONGUE" -> 10;
+            case "SITTING" -> 11;
+            case "ROARING" -> 12;
+            case "SNIFFING" -> 13;
+            case "EMERGING" -> 14;
+            case "DIGGING" -> 15;
+            case "SLIDING" -> 16;
+            case "SHOOTING" -> 17;
+            default -> 0;
+        };
     }
 }
