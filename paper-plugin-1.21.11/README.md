@@ -16,7 +16,7 @@ Install the generated JAR from `paper-plugin-1.21.11/build/libs/` into Paper's `
 
 The original source root is `recording`, `recordings`, `scenes`, `playback`, `settings`, `misc`, `info`, and `help`. Source command reference and feature matrix are in `audit/`.
 
-The Paper command has one canonical entry point for each command family. Use `scenes` (not `scene`), `playback` (not `playing`), `names` (not `name`) and `skins` (not `skin`). `recording` and `recordings` are intentionally separate: the former manages live/stopped capture sessions; the latter manages saved `.mcmocap_rec` files. Scene copy/move is inside `/mocap scenes modify`; there is no standalone root `/mocap copy`. This cleanup does not imply 100% upstream parity. Only `playback_speed`, `can_push_entities`, and `invulnerable_playback` currently have live Paper settings behavior; other settings are marked `UPSTREAM-ONLY`. The original `misc` sync/cache refresh/extension commands and upstream playback modifier context are not fully implemented.
+The Paper command has one canonical entry point for each command family. Use `scenes` (not `scene`), `playback` (not `playing`), `names` (not `name`) and `skins` (not `skin`). A single-actor display-name edit is `/mocap names modify`, while saved name/skin profile assignment remains under `/mocap customize names|skins`. `recording` and `recordings` are intentionally separate: the former manages live/stopped capture sessions; the latter manages saved `.mcmocap_rec` files. Scene copy/move is inside `/mocap scenes modify`; there is no standalone root `/mocap copy`. This cleanup does not imply 100% upstream parity. Only `playback_speed`, `can_push_entities`, and `invulnerable_playback` currently have live Paper settings behavior; other settings are marked `UPSTREAM-ONLY`. The original `misc` sync/cache refresh/extension commands and upstream playback modifier context are not fully implemented.
 
 ## Paper recording (partial)
 
@@ -59,7 +59,7 @@ The upstream syntax supports a full modifier tree and has further optional `add_
 - `/mocap playback freeze <id>`, `unfreeze <id>`, `end-freeze <id>`
 - `/mocap playback low-lag <id> <on|off>`
 - `/mocap playback nametags <id> <hide|show>`
-- `/mocap names|skins groups`, `subgroups <group>`, `list <group> [<subgroup>]`
+- `/mocap names|skins groups`, `subgroups <group>`, `list <group> [<subgroup>] [<page>]` (use `page:<page>` when listing a whole group across subgroups)
 - `/mocap names|skins save <group> <subgroup> <comma,separated,official,names>` (replace that subgroup)
 - `/mocap names|skins add <group> <subgroup> <comma,separated,official,names>` (append new unique names)
 - `/mocap names|skins import <group> <subgroup> <file.txt>` (replace from UTF-8 file)
@@ -70,7 +70,7 @@ The upstream syntax supports a full modifier tree and has further optional `add_
 - `/mocap customize skins <scene> <group> auto`
 - `/mocap customize names <scene> <group> <subgroup:subgroup-name> auto`
 - `/mocap customize skins <scene> <group> <subgroup:subgroup-name> auto`
-- `/mocap customize name <scene> <element-index[-name]> <player-name>`
+- `/mocap names modify <scene> <element-index[-name]> <new-player-name>` (change one actor's display name)
 - `/mocap customize equipment save <group-name> <preset-name>`
 - `/mocap customize equipment list [<group-name>]`
 - `/mocap customize equipment apply <playback-id> <group-name> <preset-name>`
@@ -93,7 +93,7 @@ The upstream syntax supports a full modifier tree and has further optional `add_
 
 A **group** is the broad category (e.g. `Season1`); a **subgroup** is a named list inside it (e.g. `Heroes` or `Villains`). This avoids mixing separate rosters into one giant list and lets `auto` randomize either an entire category or one subgroup. Names and skins are intentionally separate libraries: `names` sets the on-screen player name, while `skins` chooses a profile to resolve for the mannequin skin. Libraries are stored under `plugins/MocapPaper/profile-libraries/names/<group>/<subgroup>.yml` and `.../skins/<group>/<subgroup>.yml`. Each subgroup supports up to 3,000 unique official Mojang profile names. IDs are stable and subgroup-qualified when listing a whole group; removing an entry does not renumber others. `save` replaces one subgroup, `add` appends new unique values, and `remove` accepts an entry ID or exact profile name. For large lists, place a UTF-8 text file under `plugins/MocapPaper/profile-libraries/imports/`; the file may be comma-separated or one profile per line, with a 512 KiB size limit.
 
-Use `/mocap names list <group> [<subgroup>] [<page>|page:<page>]` or the equivalent `skins` command to inspect lists 60 entries at a time. After choosing a library group in `/mocap customize names|skins <scene> <group>`, `auto` is the first TAB suggestion. It randomly assigns from all saved subgroups in that group; a labeled `subgroup:<name>` scope can restrict the pool. Direct comma-separated official names remain available. Random selection is performed independently for each scene element, so short pools can repeat across large formations, and the resulting assignments are stored in scene JSON rather than re-rolled during playback. Official name and skin list entries are validated as 1–16-character Mojang profile names.
+Use `/mocap names list <group> page:<page>` to page through all subgroups, or `/mocap names list <group> <subgroup> <page>` for one list; use the equivalent `skins` command for skin profiles. Both show 60 entries per page. After choosing a library group in `/mocap customize names|skins <scene> <group>`, `auto` is the first TAB suggestion. It randomly assigns from all saved subgroups in that group; a labeled `subgroup:<name>` scope can restrict the pool. Direct comma-separated official names remain available. Random selection is performed independently for each scene element, so short pools can repeat across large formations, and the resulting assignments are stored in scene JSON rather than re-rolled during playback. Official name and skin list entries are validated as 1–16-character Mojang profile names.
 
 Equipment autocomplete is group-scoped: after the group is selected, only presets in that group are suggested. `apply-element` and `remove-element` suggest one-based actor indexes from the selected active playback. `remove`/ `remove-element` clear only the four armor slots, leaving hands untouched. `mix` takes at least two selected preset names from one group, randomly assigns one whole armor set per actor, and preserves the current held-item state; `randomize` chooses from every armor set in a group. Full `apply` still applies a complete equipment preset.
 
