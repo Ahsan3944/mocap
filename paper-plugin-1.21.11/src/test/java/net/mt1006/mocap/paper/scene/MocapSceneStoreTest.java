@@ -87,6 +87,70 @@ class MocapSceneStoreTest {
     }
 
     @Test
+    void nestedSceneExpandsAndParentOverrideIsAppliedWithoutMutatingChild() throws Exception {
+        MocapSceneStore store = new MocapSceneStore(tempDir);
+        Path recordings = tempDir.resolve("mocap_files").resolve("recordings");
+        Files.write(recordings.resolve("walk.mcmocap_rec"), new byte[]{1, 2, 3});
+
+        store.createScene("child");
+        store.addSceneElement("child", "walk", 0, "ChildActor", "default", null);
+        store.createScene("parent");
+        store.addSceneElement("parent", ".child", 0, "ParentOverride", "from_player", "Steve");
+
+        var actors = store.expand(".parent");
+        assertEquals(1, actors.size());
+        assertEquals("ParentOverride", actors.get(0).playerName());
+        assertEquals("Steve", actors.get(0).skinProfile());
+
+        // A parent-level override changes the expansion result only. The stored child remains unchanged.
+        var child = store.readScene("child").getAsJsonArray("subscenes").get(0).getAsJsonObject();
+        assertEquals("ChildActor", child.get("player_name").getAsString());
+        assertFalse(child.has("player_skin"));
+    }
+
+    @Test
+    void nestedSceneDelayAndTransformCompositionAreExpanded() throws Exception {
+        MocapSceneStore store = new MocapSceneStore(tempDir);
+        Path recordings = tempDir.resolve("mocap_files").resolve("recordings");
+        Files.write(recordings.resolve("walk.mcmocap_rec"), new byte[]{1, 2, 3});
+
+        store.createScene("child");
+        store.addSceneElement("child", "walk", 1.0, null, "default", null);
+        store.createScene("parent");
+        store.addSceneElement("parent", ".child", 2.0, null, "default", null);
+        store.modifySceneElement("parent", "001-.child", "transformations",
+                new String[]{"offset", "10", "0", "5"});
+        var actor = store.expand(".parent").get(0);
+        assertEquals(60, actor.delayTicks()); // 3 seconds × 20 ticks/second
+        assertEquals(1, actor.transforms().size());
+        assertEquals(10, actor.transforms().get(0).x(), 0.0001);
+        assertEquals(5, actor.transforms().get(0).z(), 0.0001);
+    }
+
+    @Test
+    void rejectsRecursiveAndTooDeepNestedScenesWithoutReturningPartialActors() throws Exception {
+        MocapSceneStore store = new MocapSceneStore(tempDir);
+        Path recordings = tempDir.resolve("mocap_files").resolve("recordings");
+        Files.write(recordings.resolve("walk.mcmocap_rec"), new byte[]{1, 2, 3});
+
+        store.createScene("self");
+        store.addSceneElement("self", "walk", 0, null, "default", null);
+        store.modifySceneElement("self", "001-walk", "subscene_name", new String[]{".self"});
+        IOException cycle = assertThrows(IOException.class, () -> store.expand(".self"));
+        assertTrue(cycle.getMessage().contains("Recursive scene"));
+
+        store.createScene("leaf");
+        store.addSceneElement("leaf", "walk", 0, null, "default", null);
+        for (int i = 0; i < 34; i++) {
+            String parent = "nested_" + i;
+            store.createScene(parent);
+            store.addSceneElement(parent, i == 0 ? ".leaf" : ".nested_" + (i - 1), 0, null, "default", null);
+        }
+        IOException depth = assertThrows(IOException.class, () -> store.expand(".nested_33"));
+        assertTrue(depth.getMessage().contains("Nested scene depth"));
+    }
+
+    @Test
     void sceneCopyNeverOverwritesExistingTarget() throws Exception {
         Path scenesDir = tempDir.resolve("mocap_files").resolve("scenes");
         Files.createDirectories(scenesDir);
