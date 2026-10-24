@@ -1,0 +1,48 @@
+--- a/common/src/main/java/net/mt1006/mocap/mocap/files/EquipmentPresetManager.java
++++ b/common/src/main/java/net/mt1006/mocap/mocap/files/EquipmentPresetManager.java
+@@ -80,7 +80,7 @@
+ 
+ 		try (FileReader reader = new FileReader(file))
+ 		{
+-			JsonObject json = JsonParser.parseReader(reader).getAsJsonObject();
++			JsonObject json = new JsonParser().parse(reader).getAsJsonObject();
+ 			Preset preset = new Preset();
+ 			DynamicOps<Tag> ops = server.registryAccess().createSerializationContext(NbtOps.INSTANCE);
+ 			for (EquipmentSlot slot : SLOTS)
+--- a/common/src/main/java/net/mt1006/mocap/mocap/playing/playback/RecordingPlayback.java
++++ b/common/src/main/java/net/mt1006/mocap/mocap/playing/playback/RecordingPlayback.java
+@@ -247,7 +247,6 @@
+ 	@Override public void setLowLagMode(boolean enabled)
+ 	{
+ 		lowLagMode = enabled;
+-		ctx.getMainEntity().setNoPhysics(enabled);
+ 		if (ctx.getMainEntity() instanceof FakePlayer fakePlayer) { fakePlayer.setStaticMode(enabled); }
+ 	}
+ 
+@@ -334,7 +333,6 @@
+ 		ctx.resetMainEntityForLoop();
+ 		if (lowLagMode)
+ 		{
+-			ctx.getMainEntity().setNoPhysics(true);
+ 			if (ctx.getMainEntity() instanceof FakePlayer fakePlayer) { fakePlayer.setStaticMode(true); }
+ 		}
+ 		applyEquipmentOverride();
+--- a/common/src/main/java/net/mt1006/mocap/command/commands/EquipmentCommand.java
++++ b/common/src/main/java/net/mt1006/mocap/command/commands/EquipmentCommand.java
+@@ -5,7 +5,6 @@
+ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+ import net.minecraft.commands.CommandSourceStack;
+ import net.minecraft.commands.Commands;
+-import net.mt1006.mocap.api.v1.io.CommandInfo;
+ import net.mt1006.mocap.command.CommandUtils;
+ import net.mt1006.mocap.command.io.FullCommandInfo;
+ import net.mt1006.mocap.mocap.files.EquipmentPresetManager;
+@@ -116,7 +115,7 @@
+ 		return info.sendSuccess("equipment_preset.randomized");
+ 	}
+ 
+-	private static PlaybackRoot findPlayback(CommandInfo info)
++	private static PlaybackRoot findPlayback(FullCommandInfo info)
+ 	{
+ 		String id = info.getString("playback_id");
+ 		PlaybackRoot playback = PlaybackManager.findPlayback(info, id, null);
