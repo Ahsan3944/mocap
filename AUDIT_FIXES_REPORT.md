@@ -14,7 +14,7 @@
 ### Scene authoring
 - Random unique names and random skin profile names are assigned to direct recording elements and are saved in scene modifier data. Replaying the scene does not reroll names/skins. The individual `player_name set` modifier remains available for later editing.
 - Random name/skin assignment currently rejects scenes whose direct elements include nested scenes, because one parent element may expand to multiple actors. If fewer names are provided than direct elements, the remaining elements are unchanged.
-- Skin profile prefetch uses a bounded two-thread daemon pool. If a profile is invalid, unavailable, or rate-limited, successful skin resolution is not guaranteed; test the fallback in a live server before relying on a large scene.
+- Skin profile prefetch uses a two-thread daemon pool. If a profile is invalid, unavailable, or rate-limited, successful skin resolution is not guaranteed; test the fallback in a live server before relying on a large scene.
 - Formation builder creates a centered X/Z grid with command and scene caps. Scene copy leaves the source intact. `COMMON_LEFTMOST` is available as a placement anchor. Nested scenes preserve their modifiers and receive cleanup/freeze/end-freeze/equipment/name-tag/low-lag propagation.
 - Persistent equipment presets store armor and main/offhand slots, intentionally excluding the hotbar. They can be applied to a playback tree, a direct scene element, or randomized independently per actor. Overrides are reapplied after recorded equipment actions.
 - Name-tag visibility commands batch and synchronize visibility overrides for living playback entities to connected clients using the matching Mocap protocol.
