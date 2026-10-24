@@ -1297,41 +1297,37 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "             ULTRAOP • MOCAP");
         sender.sendMessage(ChatColor.AQUA + "ROOT " + ChatColor.WHITE + "/mocap <group> <action>");
-        sender.sendMessage(ChatColor.YELLOW + "RECORDING");
-        sender.sendMessage(ChatColor.WHITE + "/mocap recording <start|stop|discard|save|list>");
-        sender.sendMessage(ChatColor.GRAY + "  Captures position, rotation, supported poses and original player name.");
-        sender.sendMessage(ChatColor.GRAY + "  Block edits, chat, inventory and combat actions are not recorded by this Paper port.");
+        sender.sendMessage(ChatColor.YELLOW + "RECORDING CAPTURE");
+        sender.sendMessage(ChatColor.WHITE + "/mocap recording <start|stop|discard|save|list> ...");
+        sender.sendMessage(ChatColor.GRAY + "  Captures player movement. start can accept [player|selector] [instant-save-name] [custom-session-id].");
+        sender.sendMessage(ChatColor.GRAY + "  The custom session ID is optional, positive, collision-checked, and only identifies the active/stopped capture session.");
         sender.sendMessage(ChatColor.YELLOW + "SAVED RECORDINGS");
         sender.sendMessage(ChatColor.WHITE + "/mocap recordings <list|info|copy|rename|remove> ...");
-        sender.sendMessage(ChatColor.YELLOW + "SCENES (UPSTREAM GROUP)");
-        sender.sendMessage(ChatColor.WHITE + "/mocap scenes add <scene_name>");
-        sender.sendMessage(ChatColor.WHITE + "/mocap scenes add_to <scene> <recording|.nested_scene> [delay] [player_name] [skin_source skin_value]");
-        sender.sendMessage(ChatColor.WHITE + "/mocap scenes <copy|rename|remove|remove_from|modify|info|list> ...");
-        sender.sendMessage(ChatColor.WHITE + "/mocap scenes play <recording|.scene> [loop]");
-        sender.sendMessage(ChatColor.YELLOW + "PLAYING");
-        sender.sendMessage(ChatColor.WHITE + "/mocap playing start <recording|.scene> [player_name] [skin_from_player <profile>]");
-        sender.sendMessage(ChatColor.WHITE + "/mocap playing <stop <id>|stop_all|list>");
-        sender.sendMessage(ChatColor.YELLOW + "PAPER PLAYBACK ADD-ONS");
-        sender.sendMessage(ChatColor.WHITE + "/mocap playback <freeze|unfreeze|end-freeze> <id>");
-        sender.sendMessage(ChatColor.WHITE + "/mocap playback <low-lag <id> <on|off>|nametags <id> <hide|show>>");
-        sender.sendMessage(ChatColor.YELLOW + "PROFILE LIBRARIES");
-        sender.sendMessage(ChatColor.WHITE + "/mocap names|skins <groups|subgroups|list|save|add|remove|import|import-add> ...");
-        sender.sendMessage(ChatColor.GRAY + "  Save official names in group/subgroup lists with stable IDs. Bulk paste comma-separated names or import a UTF-8 .txt file.");
-        sender.sendMessage(ChatColor.WHITE + "/mocap customize <names|skins> <scene> <group> auto");
-        sender.sendMessage(ChatColor.GRAY + "  Auto appears first in TAB and selects randomly from saved profiles; each actor is assigned independently.");
-        sender.sendMessage(ChatColor.YELLOW + "CUSTOMIZE / FORMATION");
-        sender.sendMessage(ChatColor.WHITE + "/mocap customize equipment <apply|apply-element|remove|remove-element|mix|randomize> ...");
-        sender.sendMessage(ChatColor.GRAY + "  remove clears armor only. mix/randomize assign selected saved armor sets randomly across a playback.");
-        sender.sendMessage(ChatColor.GRAY + "  scenes modify is the upstream per-element modifier tree; customize is the UltraOP shortcut for names/skins/equipment.");
-        sender.sendMessage(ChatColor.WHITE + "/mocap formation add <scene> <recording> <rows> <columns> <column-gap> <row-gap>");
-        sender.sendMessage(ChatColor.WHITE + "/mocap formation tool | /mocap paste <recording|.scene> [loop]");
-        sender.sendMessage(ChatColor.WHITE + "/mocap paste <recording|.scene> <x> <y> <z> [loop]");
-        sender.sendMessage(ChatColor.GRAY + "  The source character stays at row 1/column 1; columns grow right and rows grow behind relative to recorded yaw.");
-        sender.sendMessage(ChatColor.WHITE + "/mocap copy scene <source> <target>");
+        sender.sendMessage(ChatColor.GRAY + "  recording manages capture sessions; recordings manages saved recording files, so these are different operations.");
+        sender.sendMessage(ChatColor.YELLOW + "SCENES");
+        sender.sendMessage(ChatColor.WHITE + "/mocap scenes <add|add_to|rename|remove|remove_from|modify|info|list|play> ...");
+        sender.sendMessage(ChatColor.WHITE + "/mocap scenes modify <move <scene>|copy <source-scene> <new-scene>>");
+        sender.sendMessage(ChatColor.GRAY + "  move requires a target selected with the tagged placement rod; copy preserves the original and can place the copy at the current target.");
+        sender.sendMessage(ChatColor.YELLOW + "PLAYBACK");
+        sender.sendMessage(ChatColor.WHITE + "/mocap playback start <recording|.scene> [<player_name>] [skin_from_player <profile>] [loop]");
+        sender.sendMessage(ChatColor.WHITE + "/mocap playback <list|stop|stopall|freeze|unfreeze|end-freeze|low-lag|nametags> ...");
+        sender.sendMessage(ChatColor.GRAY + "  /mocap playing was consolidated into playback; use only /mocap playback.");
+        sender.sendMessage(ChatColor.YELLOW + "FORMATION GROUPS & PLACEMENT");
+        sender.sendMessage(ChatColor.WHITE + "/mocap formation tool");
+        sender.sendMessage(ChatColor.WHITE + "/mocap formation create <group> <source-recording> <rows> <columns> <column-gap> <row-gap>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap formation <list|info|play|delete> ...");
+        sender.sendMessage(ChatColor.WHITE + "/mocap paste <recording|.scene> [loop]  |  /mocap paste <recording|.scene> <x> <y> <z> [loop]");
+        sender.sendMessage(ChatColor.GRAY + "  create saves a named group plus backing scene, anchored at the block selected with the placement rod.");
+        sender.sendMessage(ChatColor.YELLOW + "PROFILE LIBRARIES & CUSTOMIZATION");
+        sender.sendMessage(ChatColor.WHITE + "/mocap names <groups|subgroups|list|save|add|remove|import|delete> ...");
+        sender.sendMessage(ChatColor.WHITE + "/mocap skins <groups|subgroups|list|save|add|remove|import|delete> ...");
+        sender.sendMessage(ChatColor.GRAY + "  names and skins are separate libraries; each has group categories and subgroups (named lists within a category).");
+        sender.sendMessage(ChatColor.WHITE + "/mocap customize <names|skins|name|equipment> ...");
+        sender.sendMessage(ChatColor.GRAY + "  customize names/skins assigns saved profiles to a scene; customize name changes one scene actor's displayed name.");
+        sender.sendMessage(ChatColor.YELLOW + "SETTINGS");
         sender.sendMessage(ChatColor.WHITE + "/mocap settings <recording|playback|advanced> [<setting> [<value>]]");
-        sender.sendMessage(ChatColor.GRAY + "  Settings lists original field names and marks each field as supported or upstream-only in this Paper port.");
         sender.sendMessage(ChatColor.WHITE + "/mocap info");
-        sender.sendMessage(ChatColor.GRAY + "Use TAB or /mocap <group> help for group-specific arguments.");
+        sender.sendMessage(ChatColor.GRAY + "Duplicate root aliases removed: use scenes (not scene), playback (not playing), names (not name), and skins (not skin).");
         sender.sendMessage(ChatColor.GRAY + "Management permission: " + ChatColor.YELLOW + "mocap.admin");
         sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     }
@@ -1423,10 +1419,23 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         if (args.length == 2) return filter(List.of("help", "add", "create", "add_to", "rename", "remove",
                 "remove_from", "modify", "info", "list", "play", "customize", "formation"), args[1]);
         String action = args[1].toLowerCase(Locale.ROOT);
+        if (action.equals("modify")) {
+            if (args.length == 3) {
+                List<String> choices = new ArrayList<>(filter(List.of("move", "copy"), args[2]));
+                choices.addAll(filter(scenes.listScenes(), args[2]));
+                return choices.stream().distinct().limit(100).toList();
+            }
+            if (args.length == 4 && (args[2].equalsIgnoreCase("move") || args[2].equalsIgnoreCase("copy"))) {
+                return sceneNameSuggestions(args[3]);
+            }
+            if (args.length == 5 && args[2].equalsIgnoreCase("copy")) {
+                return filterOrHint(List.of(), args[4], "<new-scene-name>");
+            }
+        }
         if (args.length == 3) {
             return switch (action) {
                 case "add", "create" -> filterOrHint(List.of(), args[2], "<new-scene-name>");
-                case "copy", "rename" -> sceneNameSuggestions(args[2]);
+                case "rename" -> sceneNameSuggestions(args[2]);
                 case "remove", "delete", "info", "list", "play", "add_to", "addto", "add-to", "remove_from", "remove-from", "modify" ->
                         sceneNameSuggestions(args[2]);
                 case "customize" -> filter(List.of("names", "skins", "name", "equipment"), args[2]);
@@ -1434,7 +1443,7 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
                 default -> List.of();
             };
         }
-        if (action.equals("copy") || action.equals("rename")) {
+        if (action.equals("rename")) {
             return args.length == 4 ? filterOrHint(List.of(), args[3], "<new-scene-name>") : List.of();
         }
         if (List.of("remove_from", "remove-from", "modify").contains(action)) {
