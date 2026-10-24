@@ -4,11 +4,13 @@ import net.mt1006.mocap.paper.MocapPaperPlugin;
 import net.mt1006.mocap.paper.equipment.EquipmentPresetStore;
 import net.mt1006.mocap.paper.playback.PaperPlaybackManager;
 import net.mt1006.mocap.paper.scene.MocapSceneStore;
+import net.mt1006.mocap.paper.recording.PaperRecordingManager;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.World;
 import org.bukkit.command.*;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Entity;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -27,13 +29,16 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
     private final MocapSceneStore scenes;
     private final EquipmentPresetStore equipment;
     private final PaperPlaybackManager playbacks;
+    private final PaperRecordingManager recordings;
 
     public PaperMocapCommand(MocapPaperPlugin plugin, MocapSceneStore scenes,
-                             EquipmentPresetStore equipment, PaperPlaybackManager playbacks) {
+                             EquipmentPresetStore equipment, PaperPlaybackManager playbacks,
+                             PaperRecordingManager recordings) {
         this.plugin = plugin;
         this.scenes = scenes;
         this.equipment = equipment;
         this.playbacks = playbacks;
+        this.recordings = recordings;
     }
 
     @Override
@@ -71,17 +76,89 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
-    private void recordingCommand(CommandSender sender, String[] args) {
+    private void recordingCommand(CommandSender sender, String[] args) throws IOException {
         if (args.length == 1 || eq(args[1], "help")) {
-            sender.sendMessage("Recording: start | stop | save | discard | list");
-            sender.sendMessage("Recording capture is not implemented by the Paper port; use the original Mocap mod to create recordings.");
+            sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "MOCAP RECORDING");
+            sender.sendMessage(ChatColor.WHITE + "/mocap recording start [<player|selector>] [<instant-save-name>]");
+            sender.sendMessage(ChatColor.WHITE + "/mocap recording stop [<id>]");
+            sender.sendMessage(ChatColor.WHITE + "/mocap recording save <name> [<id>]");
+            sender.sendMessage(ChatColor.WHITE + "/mocap recording discard [<id>] | list [<id>]");
+            sender.sendMessage(ChatColor.GRAY + "Paper captures player position and rotation only; block/chat/inventory actions are not recorded.");
             return;
         }
-        if (eq(args[1], "list")) {
-            listRecordings(sender);
-            return;
+        switch (args[1].toLowerCase(Locale.ROOT)) {
+            case "start" -> {
+                String selector = args.length >= 3 && !args[2].isBlank() ? args[2].trim() : null;
+                List<Player> targets = resolveRecordingTargets(sender, selector);
+                String instantName = args.length >= 4 && !args[3].isBlank() ? args[3].trim() : null;
+                int started = 0;
+                List<String> errors = new ArrayList<>();
+                for (Player target : targets) {
+                    String targetName = instantName;
+                    if (targetName != null && targets.size() > 1) targetName = targetName + "_" + target.getName();
+                    try {
+                        String id = recordings.start(target, targetName);
+                        sender.sendMessage(ChatColor.GREEN + "Recording started for " + target.getName() + ChatColor.GRAY + " (ID " + id + ").");
+                        started++;
+                    } catch (IOException e) {
+                        errors.add(target.getName() + ": " + e.getMessage());
+                    }
+                }
+                for (String error : errors) sender.sendMessage(ChatColor.RED + error);
+                if (started == 0) throw new IOException(errors.isEmpty() ? "No player was selected. Try /mocap recording start @a." : "No recordings were started.");
+                if (started > 1) sender.sendMessage(ChatColor.GREEN + "Started " + started + " player recording(s).");
+            }
+            case "stop" -> sender.sendMessage(recordings.stop(args.length >= 3 ? args[2] : null, asPlayer(sender)));
+            case "save" -> {
+                if (args.length < 3) { usage(sender, "/mocap recording save <name> [<id>]"); return; }
+                sender.sendMessage(recordings.save(args[2], args.length >= 4 ? args[3] : null, asPlayer(sender)));
+            }
+            case "discard" -> sender.sendMessage(recordings.discard(args.length >= 3 ? args[2] : null, asPlayer(sender)));
+            case "list" -> {
+                List<String> lines = recordings.statusLines();
+                if (args.length >= 3 && !args[2].isBlank()) lines = lines.stream().filter(line -> line.startsWith(args[2] + " ")).toList();
+                sender.sendMessage(lines.isEmpty() ? "No active or stopped Paper recordings found." : ChatColor.GOLD + "Paper recordings:");
+                lines.forEach(line -> sender.sendMessage(ChatColor.GRAY + line));
+            }
+            default -> {
+                sender.sendMessage(ChatColor.RED + "Unknown recording action: " + args[1]);
+                sender.sendMessage("Usage: /mocap recording <start|stop|save|discard|list>");
+            }
         }
-        sender.sendMessage("Recording capture (" + args[1] + ") is not supported by the Paper visual-playback port. Existing recordings can be listed under /mocap recordings list.");
+    }
+
+    private List<Player> resolveRecordingTargets(CommandSender sender, String selector) throws IOException {
+        if (selector == null || selector.isBlank()) {
+            if (sender instanceof Player player) return List.of(player);
+            throw new IOException("Console must specify a player or selector, for example /mocap recording start @a.");
+        }
+        List<Player> targets = new ArrayList<>();
+        if (selector.startsWith("@")) {
+            try {
+                for (Entity entity : Bukkit.selectEntities(sender, selector)) {
+                    if (entity instanceof Player player) targets.add(player);
+                }
+            } catch (IllegalArgumentException | IllegalStateException e) {
+                throw new IOException("Invalid player selector '" + selector + "': " + e.getMessage(), e);
+            }
+        } else {
+            for (String rawName : selector.split(",")) {
+                String name = rawName.trim();
+                if (name.isEmpty()) continue;
+                Player player = Bukkit.getPlayerExact(name);
+                if (player == null) throw new IOException("Player is not online: " + name);
+                targets.add(player);
+            }
+        }
+        List<Player> unique = targets.stream().collect(
+                java.util.stream.Collectors.toMap(Player::getUniqueId, p -> p, (first, ignored) -> first, LinkedHashMap::new))
+                .values().stream().toList();
+        if (unique.isEmpty()) throw new IOException("No online players matched '" + selector + "'. Try @a, @p, @s, or an online player name.");
+        return unique;
+    }
+
+    private static Player asPlayer(CommandSender sender) {
+        return sender instanceof Player player ? player : null;
     }
 
     private void recordingsCommand(CommandSender sender, String[] args) throws IOException {
@@ -350,7 +427,7 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.GRAY + "Purpose: " + ChatColor.WHITE + "Mocap recording/scene file playback");
         sender.sendMessage(ChatColor.GRAY + "Maintainer: " + ChatColor.YELLOW + "UltraOP");
         sender.sendMessage(ChatColor.GRAY + "Platform: " + ChatColor.WHITE + "Paper Plugin • Java 21");
-        sender.sendMessage(ChatColor.GRAY + "Recording capture: " + ChatColor.RED + "Not implemented in this Paper port");
+        sender.sendMessage(ChatColor.GRAY + "Recording capture: " + ChatColor.GREEN + "Position/rotation only (Paper limited mode)");
         sender.sendMessage(ChatColor.GRAY + "Actors: " + ChatColor.WHITE + "Paper Mannequin API (not fake players)");
         sender.sendMessage(ChatColor.GRAY + "Help: " + ChatColor.GREEN + "/mocap help");
         sender.sendMessage(ChatColor.GRAY + "Limits: " + ChatColor.WHITE + "See PORT_REPORT.md in the source package.");
@@ -363,7 +440,7 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.AQUA + "ROOT " + ChatColor.WHITE + "/mocap <group> <action>");
         sender.sendMessage(ChatColor.YELLOW + "RECORDING");
         sender.sendMessage(ChatColor.WHITE + "/mocap recording <start|stop|save|discard|list>");
-        sender.sendMessage(ChatColor.GRAY + "  Recording capture is unavailable in this Paper port.");
+        sender.sendMessage(ChatColor.GRAY + "  Captures player position/rotation only; block/chat/inventory actions are not recorded.");
         sender.sendMessage(ChatColor.YELLOW + "SAVED RECORDINGS");
         sender.sendMessage(ChatColor.WHITE + "/mocap recordings <list|info <name>>");
         sender.sendMessage(ChatColor.YELLOW + "SCENES");
@@ -393,12 +470,10 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         if (root.equals("recording")) {
             if (args.length == 2) return filter(List.of("help", "start", "stop", "save", "discard", "list"), args[1]);
             if (args.length == 3 && args[1].equalsIgnoreCase("start")) return playerAndSelectorSuggestions(args[2]);
-            if (args.length == 3 && List.of("stop", "save", "discard").contains(args[1].toLowerCase(Locale.ROOT))) {
-                List<String> values = new ArrayList<>(scenes.listRecordings());
-                values.addAll(playbackIds());
-                return filter(values, args[2]);
-            }
-            if (args.length == 4 && args[1].equalsIgnoreCase("save")) return filter(List.of("<name>"), args[3]);
+            if (args.length == 4 && args[1].equalsIgnoreCase("start")) return filter(List.of("my_recording", "session_1"), args[3]);
+            if (args.length == 3 && List.of("stop", "discard", "list").contains(args[1].toLowerCase(Locale.ROOT))) return filter(recordings.availableIds(), args[2]);
+            if (args.length == 3 && args[1].equalsIgnoreCase("save")) return filter(List.of("my_recording", "session_1"), args[2]);
+            if (args.length == 4 && args[1].equalsIgnoreCase("save")) return filter(recordings.availableIds(), args[3]);
             return List.of();
         }
         if (root.equals("recordings")) {
