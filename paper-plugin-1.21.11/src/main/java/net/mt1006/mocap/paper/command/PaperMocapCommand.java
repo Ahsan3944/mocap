@@ -617,9 +617,12 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
     private static boolean eq(String a, String b) { return a.equalsIgnoreCase(b); }
 
     private static String[] shift(String[] args, int count, String first) {
-        String[] shifted = new String[args.length - count + 1];
+        if (count < 0 || count >= args.length) throw new IllegalArgumentException("Invalid command argument shift.");
+        String[] shifted = new String[args.length - count];
         shifted[0] = first;
-        System.arraycopy(args, count + 1, shifted, 1, args.length - count - 1);
+        if (shifted.length > 1) {
+            System.arraycopy(args, count + 1, shifted, 1, shifted.length - 1);
+        }
         return shifted;
     }
 
