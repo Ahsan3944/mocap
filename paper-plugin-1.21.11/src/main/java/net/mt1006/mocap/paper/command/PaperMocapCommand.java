@@ -375,12 +375,14 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "           MOCAP SCENES");
         sender.sendMessage(ChatColor.WHITE + "/mocap scenes add <scene_name>");
         sender.sendMessage(ChatColor.WHITE + "/mocap scenes add_to <scene> <recording|.nested_scene> [<wait_on_start_seconds>] [<player_name>] [<skin_source> <skin_value>]");
-        sender.sendMessage(ChatColor.WHITE + "/mocap scenes <copy|rename> <source> <target>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap scenes rename <source> <target>");
         sender.sendMessage(ChatColor.WHITE + "/mocap scenes <remove <scene>|remove_from <scene> <element>>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap scenes modify move <scene>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap scenes modify copy <source> <new-scene-name>");
         sender.sendMessage(ChatColor.WHITE + "/mocap scenes modify <scene> <element> <property> <values...>");
         sender.sendMessage(ChatColor.WHITE + "/mocap scenes <list [scene]|info <scene> [element]>");
         sender.sendMessage(ChatColor.WHITE + "/mocap scenes play <recording|.scene> [loop]");
-        sender.sendMessage(ChatColor.GRAY + "modify is the original-style per-element property tree: player_name/player_skin/time/transformations.");
+        sender.sendMessage(ChatColor.GRAY + "modify owns scene-wide move/copy and per-element properties (player_name/player_skin/time/transformations). A move requires a target selected with the placement rod.");
         sender.sendMessage(ChatColor.GRAY + "customize is an UltraOP shortcut for bulk names/skins/equipment and is not a replacement for modify.");
         sender.sendMessage(ChatColor.GRAY + "For numeric values, TAB shows a bracketed argument hint; replace it with a real number before submitting.");
         sender.sendMessage(ChatColor.GRAY + "Use /mocap scenes <action> then press TAB to explore arguments.");
