@@ -87,25 +87,30 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
     private void recordingCommand(CommandSender sender, String[] args) throws IOException {
         if (args.length == 1 || eq(args[1], "help")) {
             sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "MOCAP RECORDING");
-            sender.sendMessage(ChatColor.WHITE + "/mocap recording start [<player|selector>] [<instant-save-name>]");
+            sender.sendMessage(ChatColor.WHITE + "/mocap recording start [<player|selector>] [<instant-save-name>] [<custom-session-id>]");
             sender.sendMessage(ChatColor.WHITE + "/mocap recording stop [<id>]");
             sender.sendMessage(ChatColor.WHITE + "/mocap recording save <name> [<id>]");
             sender.sendMessage(ChatColor.WHITE + "/mocap recording discard [<id>] | list [<id>]");
+            sender.sendMessage(ChatColor.GRAY + "custom-session-id is an optional positive number for this capture session; it must not already be active/stopped.");
+            sender.sendMessage(ChatColor.GRAY + "Saved recording files are named with <name>; a session ID is only the temporary capture/session ID.");
             sender.sendMessage(ChatColor.GRAY + "Paper captures player position and rotation only; block/chat/inventory actions are not recorded.");
             return;
         }
         switch (args[1].toLowerCase(Locale.ROOT)) {
             case "start" -> {
+                if (args.length > 5) { usage(sender, "/mocap recording start [<player|selector>] [<instant-save-name>] [<custom-session-id>]"); return; }
                 String selector = args.length >= 3 && !args[2].isBlank() ? args[2].trim() : null;
                 List<Player> targets = resolveRecordingTargets(sender, selector);
                 String instantName = args.length >= 4 && !args[3].isBlank() ? args[3].trim() : null;
+                String requestedId = args.length >= 5 && !args[4].isBlank() ? args[4].trim() : null;
+                if (requestedId != null && targets.size() != 1) throw new IOException("A custom session ID is allowed for one selected player only. Use a single player name instead of @a.");
                 int started = 0;
                 List<String> errors = new ArrayList<>();
                 for (Player target : targets) {
                     String targetName = instantName;
                     if (targetName != null && targets.size() > 1) targetName = targetName + "_" + target.getName();
                     try {
-                        String id = recordings.start(target, targetName);
+                        String id = recordings.start(target, targetName, requestedId);
                         sender.sendMessage(ChatColor.GREEN + "Recording started for " + target.getName() + ChatColor.GRAY + " (ID " + id + ").");
                         started++;
                     } catch (IOException e) {
@@ -766,7 +771,8 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.WHITE + "/mocap " + kind + " remove <group> <subgroup> <entry-id-or-exact-name>");
         sender.sendMessage(ChatColor.WHITE + "/mocap " + kind + " delete <group> <subgroup>");
         sender.sendMessage(ChatColor.WHITE + "/mocap " + kind + " info <group> <subgroup> <entry-id>");
-        sender.sendMessage(ChatColor.GRAY + "Paste a comma-separated list. Up to 3,000 unique official Mojang player names per subgroup.");
+        sender.sendMessage(ChatColor.GRAY + "Group = a broad collection/category (for example, season1). Subgroup = a named list inside it (for example, heroes or villains).");
+        sender.sendMessage(ChatColor.GRAY + "Names and skins are separate libraries because one assigns display names and the other selects a profile skin. Up to 3,000 unique names per subgroup.");
         sender.sendMessage(ChatColor.GRAY + "For thousands of names, import UTF-8 .txt files from plugins/MocapPaper/profile-libraries/imports/ (512 KiB max).");
         sender.sendMessage(ChatColor.GRAY + "IDs remain stable when other entries are removed. Names are checked as official 1–16-character profile names.");
         sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -1341,6 +1347,7 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             String action = args[1].toLowerCase(Locale.ROOT);
             if (args.length == 3 && action.equals("start")) return playerAndSelectorSuggestions(args[2]);
             if (args.length == 4 && action.equals("start")) return filterOrHint(List.of(), args[3], "<instant-save-name:optional>");
+            if (args.length == 5 && action.equals("start")) return filterOrHint(List.of(), args[4], "<custom-session-id:optional-positive-integer>");
             if (args.length == 3 && List.of("stop", "discard", "list").contains(action)) return recordingSessionIdSuggestions(args[2]);
             if (args.length == 3 && action.equals("save")) return filterOrHint(List.of(), args[2], "<recording-file-name>");
             if (args.length == 4 && action.equals("save")) return recordingSessionIdSuggestions(args[3]);
