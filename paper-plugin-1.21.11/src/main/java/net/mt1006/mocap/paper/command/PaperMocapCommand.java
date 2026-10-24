@@ -251,9 +251,38 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage(ChatColor.GREEN + "Removed element " + args[3] + " from scene ." + MocapSceneStore.normalizeSceneName(args[2]) + ".");
             }
             case "modify" -> {
+                if (args.length >= 3 && eq(args[2], "move")) {
+                    if (args.length != 4) { usage(sender, "/mocap scenes modify move <scene-name>"); return; }
+                    if (!(sender instanceof Player player)) throw new IOException("Scene move requires an in-game target selection.");
+                    Location target = plugin.placementAnchor(player);
+                    if (target == null) throw new IOException("No target selected. Run /mocap formation tool, then right-click the destination block before moving a scene.");
+                    scenes.moveSceneTo(args[3], target);
+                    sender.sendMessage(ChatColor.GREEN + "Moved the entire Scene ." + ChatColor.AQUA + MocapSceneStore.normalizeSceneName(args[3])
+                            + ChatColor.GREEN + " so its first actor is at the selected destination.");
+                    sender.sendMessage(ChatColor.GRAY + "Use /mocap scenes modify move " + args[3] + " again with a new selection to move the complete team again.");
+                    return;
+                }
+                if (args.length >= 3 && eq(args[2], "copy")) {
+                    if (args.length != 5) { usage(sender, "/mocap scenes modify copy <source-scene> <new-scene-name>"); return; }
+                    scenes.copyScene(args[3], args[4]);
+                    boolean placed = false;
+                    if (sender instanceof Player player) {
+                        Location target = plugin.placementAnchor(player);
+                        if (target != null) {
+                            scenes.moveSceneTo(args[4], target);
+                            placed = true;
+                        }
+                    }
+                    sender.sendMessage(ChatColor.GREEN + "Copied Scene ." + ChatColor.AQUA + MocapSceneStore.normalizeSceneName(args[3])
+                            + ChatColor.GREEN + " to ." + ChatColor.AQUA + MocapSceneStore.normalizeSceneName(args[4]) + ChatColor.GREEN + "."
+                            + (placed ? " The copy was placed at the currently selected target." : " Original scene coordinates were preserved."));
+                    return;
+                }
                 if (args.length < 5) {
                     sender.sendMessage(ChatColor.YELLOW + "Usage: /mocap scenes modify <scene> <element> <property> <values...>");
-                    sender.sendMessage(ChatColor.GRAY + "Properties: subscene_name, player_name, player_skin, time, transformations.");
+                    sender.sendMessage(ChatColor.WHITE + "/mocap scenes modify move <scene-name>");
+                    sender.sendMessage(ChatColor.WHITE + "/mocap scenes modify copy <source-scene> <new-scene-name>");
+                    sender.sendMessage(ChatColor.GRAY + "Per-element properties: subscene_name, player_name, player_skin, time, transformations.");
                     return;
                 }
                 String[] values = Arrays.copyOfRange(args, 5, args.length);
