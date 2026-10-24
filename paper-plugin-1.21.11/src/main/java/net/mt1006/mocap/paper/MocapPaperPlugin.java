@@ -5,6 +5,7 @@ import net.mt1006.mocap.paper.equipment.EquipmentPresetStore;
 import net.mt1006.mocap.paper.playback.PaperPlaybackManager;
 import net.mt1006.mocap.paper.recording.PaperRecordingManager;
 import net.mt1006.mocap.paper.scene.MocapSceneStore;
+import net.mt1006.mocap.paper.settings.PaperSettingsStore;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -15,6 +16,7 @@ public final class MocapPaperPlugin extends JavaPlugin {
     private EquipmentPresetStore equipment;
     private PaperPlaybackManager playbacks;
     private PaperRecordingManager recordings;
+    private PaperSettingsStore settings;
 
     @Override
     public void onEnable() {
@@ -24,9 +26,10 @@ public final class MocapPaperPlugin extends JavaPlugin {
             scenes = new MocapSceneStore(rootWorld.getWorldFolder().toPath());
             equipment = new EquipmentPresetStore(getDataFolder().toPath());
             recordings = new PaperRecordingManager(this, rootWorld.getWorldFolder().toPath());
-            playbacks = new PaperPlaybackManager(this, scenes, equipment);
+            settings = new PaperSettingsStore(getDataFolder().toPath());
+            playbacks = new PaperPlaybackManager(this, scenes, equipment, settings);
 
-            PaperMocapCommand command = new PaperMocapCommand(this, scenes, equipment, playbacks, recordings);
+            PaperMocapCommand command = new PaperMocapCommand(this, scenes, equipment, playbacks, recordings, settings);
             if (getCommand("mocap") == null) throw new IOException("plugin.yml is missing the mocap command declaration.");
             getCommand("mocap").setExecutor(command);
             getCommand("mocap").setTabCompleter(command);
@@ -47,4 +50,5 @@ public final class MocapPaperPlugin extends JavaPlugin {
     public EquipmentPresetStore equipment() { return equipment; }
     public PaperPlaybackManager playbacks() { return playbacks; }
     public PaperRecordingManager recordings() { return recordings; }
+    public PaperSettingsStore settings() { return settings; }
 }
