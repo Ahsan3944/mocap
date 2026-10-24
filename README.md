@@ -52,7 +52,7 @@ One recording of climbing stairs used multiple times in a scene with start delay
 
 # Extended Motion Capture tools (this source update)
 
-These commands are additions to the existing recording, scene, and playback workflow. The updated source package has not yet passed a Java/Gradle build or live Minecraft test, so use it as a development build until those checks are completed.
+These commands are additions to the existing recording, scene, and playback workflow. The Java 25 GitHub Actions build compiles separate Fabric and NeoForge JARs and checks archive integrity and loader metadata. This is build verification, not a substitute for live Minecraft regression tests; review the outstanding tests in `IMPLEMENTATION_PLAN.md` before production use.
 
 ## Persistent random names and skins
 
@@ -97,4 +97,8 @@ Groups and preset names must use the file-name characters accepted by Mocap. App
 
 ## Build and test status
 
-The source targets Minecraft 26.1 and Java 25. Use `./gradlew --no-daemon :fabric:build :neoforge:build` to compile both supported loaders. A generated JAR must pass archive integrity checks and still needs in-game regression testing before being treated as production-ready.
+- Target: Minecraft 26.1, Java 25, Fabric and NeoForge.
+- The GitHub Actions workflow builds both loader-specific JARs, checks ZIP integrity, checks each loader's metadata and entrypoint class, uploads the artifacts, and publishes a prerelease only if those steps succeed.
+- Download the latest published prerelease from: https://github.com/Ahsan3944/mocap/releases
+- The release contains separate Fabric and NeoForge JARs. Install only the JAR matching your loader. The root `universalJar` task is experimental and is not the artifact validated for this release.
+- No claim is made that every in-game behavior is bug-free. Live server/client checks are still required for freeze/end-freeze, long-running looping, name/skin persistence, equipment presets, name-tag packets, and large-actor performance. Use a backup world for testing.
