@@ -36,6 +36,7 @@ jobs:
           patch_file="$RUNNER_TEMP/mocap-upgrade.patch"
 
           git clone --depth 1 --branch 26.1 https://github.com/mt1006/mc-mocap-mod.git "$source_dir"
+          test "$(git -C "$source_dir" rev-parse HEAD)" = "450000b21a22042776c4b2b511cb5c725bf57183"
 
           : > "$patch_b64"
           for n in $(seq 1 26); do
@@ -76,8 +77,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          fabric_jar="$(find fabric/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' -size +10k -print -quit)"
-          neoforge_jar="$(find neoforge/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' -size +10k -print -quit)"
+          fabric_jar="$(find fabric/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-dev.jar' ! -name '*-plain.jar' -size +10k -print -quit)"
+          neoforge_jar="$(find neoforge/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-dev.jar' ! -name '*-plain.jar' -size +10k -print -quit)"
           test -n "$fabric_jar"
           test -n "$neoforge_jar"
           while IFS= read -r -d '' jar; do
@@ -95,6 +96,8 @@ jobs:
             fabric/build/libs/*.jar
             neoforge/build/libs/*.jar
             !**/*-sources.jar
+            !**/*-dev.jar
+            !**/*-plain.jar
 
       - name: Publish JARs as a GitHub prerelease
         env:
@@ -102,7 +105,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -d '' jars < <(find fabric/build/libs neoforge/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' -size +10k -print0)
-          test "${#jars[@]}" -gt 0
+          fabric_jar="$(find fabric/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-dev.jar' ! -name '*-plain.jar' -size +10k -print -quit)"
+          neoforge_jar="$(find neoforge/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-dev.jar' ! -name '*-plain.jar' -size +10k -print -quit)"
+          test -n "$fabric_jar"
+          test -n "$neoforge_jar"
+          jars=("$fabric_jar" "$neoforge_jar")
           tag="mocap-26.1-upgrade-${PUBLISHED_SOURCE_SHA:0:7}"
           gh release create "$tag" --target "$PUBLISHED_SOURCE_SHA" --title "Motion Capture Mod 26.1 upgrade build" --notes "Built by GitHub Actions from the published upgraded source. JAR archive integrity was checked. In-game regression and performance testing are not automated by this workflow." --prerelease "${jars[@]}"
