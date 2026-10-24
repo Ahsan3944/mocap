@@ -21,7 +21,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
-          cache: gradle
       - uses: gradle/actions/setup-gradle@v4
       - name: Build both loader variants
         run: ./gradlew --no-daemon --stacktrace :fabric:build :neoforge:build
