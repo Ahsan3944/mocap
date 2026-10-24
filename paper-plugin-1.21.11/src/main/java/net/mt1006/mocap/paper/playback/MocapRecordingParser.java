@@ -45,8 +45,9 @@ public final class MocapRecordingParser {
         double startX = in.readDouble();
         double startY = in.readDouble();
         double startZ = in.readDouble();
-        float startPitch = in.readFloat();
+        // Mocap's recording header stores yaw first and pitch second.
         float startYaw = in.readFloat();
+        float startPitch = in.readFloat();
 
         List<String> itemIds = new ArrayList<>();
         itemIds.add("minecraft:air");
@@ -229,6 +230,7 @@ public final class MocapRecordingParser {
                 skipBlockPos(in); in.readInt(); return 0;
             case 21: { // MOVEMENT delta stream
                 int flags = in.readUnsignedByte();
+                if ((flags & 0x80) != 0) throw new IOException("Reserved movement flag bit is set.");
                 int yMode = flags & 0x03;
                 double dy = switch (yMode) {
                     case 1 -> in.readFloat();
@@ -237,6 +239,7 @@ public final class MocapRecordingParser {
                     default -> 0.0;
                 };
                 int xzMode = flags & 0x0C;
+                if (xzMode == 0x0C) throw new IOException("Reserved movement X/Z encoding is not supported.");
                 double dx = xzMode == 0x04 ? in.readFloat() : xzMode == 0x08 ? in.readDouble() : 0.0;
                 double dz = xzMode == 0x04 ? in.readFloat() : xzMode == 0x08 ? in.readDouble() : 0.0;
                 int rotationMode = flags & 0x30;
