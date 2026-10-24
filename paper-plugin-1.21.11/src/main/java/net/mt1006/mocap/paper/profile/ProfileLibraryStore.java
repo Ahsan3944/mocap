@@ -25,8 +25,10 @@ public final class ProfileLibraryStore {
 
     public ProfileLibraryStore(Path pluginDataFolder) throws IOException {
         root = pluginDataFolder.resolve("profile-libraries").toAbsolutePath().normalize();
+        importsRoot = root.resolve("imports").normalize();
         Files.createDirectories(root.resolve("names"));
         Files.createDirectories(root.resolve("skins"));
+        Files.createDirectories(importsRoot);
     }
 
     public List<String> listGroups(String kind) throws IOException {
@@ -117,6 +119,24 @@ public final class ProfileLibraryStore {
         yaml.set("next-id", nextId);
         persist(target, yaml);
         return List.copyOf(added);
+    }
+
+    /** Import comma- or newline-separated official profile names from a server-side UTF-8 text file. */
+    public List<Entry> importFile(String kind, String group, String subgroup, String fileName, boolean append) throws IOException {
+        if (fileName == null || !SAFE_IMPORT_FILE.matcher(fileName).matches()) {
+            throw new IOException("Import file name must be a simple .txt file name without folders.");
+        }
+        Path source = importsRoot.resolve(fileName).normalize();
+        if (!source.startsWith(importsRoot) || !Files.isRegularFile(source)) {
+            throw new IOException("Import file not found. Put the UTF-8 text file under plugins/MocapPaper/profile-libraries/imports/.");
+        }
+        long size = Files.size(source);
+        if (size <= 0 || size > MAX_IMPORT_BYTES) {
+            throw new IOException("Import text file must be between 1 byte and 512 KiB.");
+        }
+        String raw = Files.readString(source, java.nio.charset.StandardCharsets.UTF_8)
+                .replace("\\r", ",").replace("\\n", ",");
+        return append ? add(kind, group, subgroup, List.of(raw)) : save(kind, group, subgroup, List.of(raw));
     }
 
     public boolean remove(String kind, String group, String subgroup, String idOrValue) throws IOException {
