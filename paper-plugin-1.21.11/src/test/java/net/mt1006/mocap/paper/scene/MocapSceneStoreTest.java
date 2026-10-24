@@ -167,6 +167,33 @@ class MocapSceneStoreTest {
     }
 
     @Test
+    void formationKeepsSourceActorAtFirstCornerAndGrowsRightThenBehind() throws Exception {
+        MocapSceneStore store = new MocapSceneStore(tempDir);
+        store.createScene("formation");
+        Path recordingDir = tempDir.resolve("mocap_files").resolve("recordings");
+        var encoder = new net.mt1006.mocap.paper.recording.MocapRecordingEncoder(100, 64, 200, 0, 0, "UltraOP");
+        Files.write(recordingDir.resolve("warrior.mcmocap_rec"), encoder.toByteArray());
+
+        store.addFormation("formation", "warrior", 2, 3, 2.0);
+        var entries = store.readScene("formation").getAsJsonArray("subscenes");
+        assertEquals(6, entries.size());
+
+        var first = entries.get(0).getAsJsonObject().getAsJsonObject("transformations").getAsJsonArray("offset");
+        var secondColumn = entries.get(1).getAsJsonObject().getAsJsonObject("transformations").getAsJsonArray("offset");
+        var thirdColumn = entries.get(2).getAsJsonObject().getAsJsonObject("transformations").getAsJsonArray("offset");
+        var nextRow = entries.get(3).getAsJsonObject().getAsJsonObject("transformations").getAsJsonArray("offset");
+        assertEquals(0.0, first.get(0).getAsDouble(), 0.0001);
+        assertEquals(0.0, first.get(2).getAsDouble(), 0.0001);
+        // Yaw 0 faces +Z; the actor's right is -X and behind is -Z.
+        assertEquals(-2.0, secondColumn.get(0).getAsDouble(), 0.0001);
+        assertEquals(0.0, secondColumn.get(2).getAsDouble(), 0.0001);
+        assertEquals(-4.0, thirdColumn.get(0).getAsDouble(), 0.0001);
+        assertEquals(0.0, thirdColumn.get(2).getAsDouble(), 0.0001);
+        assertEquals(0.0, nextRow.get(0).getAsDouble(), 0.0001);
+        assertEquals(-2.0, nextRow.get(2).getAsDouble(), 0.0001);
+    }
+
+    @Test
     void sceneCopyNeverOverwritesExistingTarget() throws Exception {
         Path scenesDir = tempDir.resolve("mocap_files").resolve("scenes");
         Files.createDirectories(scenesDir);
