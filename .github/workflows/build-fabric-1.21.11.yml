@@ -50,12 +50,13 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           if git diff --cached --quiet; then
-            echo "No imported source changes were generated"
-            exit 1
+            echo "No imported source changes were generated; building the current branch commit."
+            source_sha="$(git rev-parse HEAD)"
+          else
+            git commit -m "Port Mocap feature core to Minecraft 1.21.11 Fabric"
+            source_sha="$(git rev-parse HEAD)"
+            git push origin HEAD:fabric-1.21.11
           fi
-          git commit -m "Port Mocap feature core to Minecraft 1.21.11 Fabric"
-          source_sha="$(git rev-parse HEAD)"
-          git push origin HEAD:fabric-1.21.11
           echo "BUILD_SOURCE_SHA=$source_sha" >> "$GITHUB_ENV"
 
       - name: Set up Gradle
