@@ -937,6 +937,9 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(ChatColor.WHITE + "/mocap customize equipment delete <group-name> <preset-name>");
             sender.sendMessage(ChatColor.WHITE + "/mocap customize equipment apply <playback-id> <group-name> <preset-name>");
             sender.sendMessage(ChatColor.WHITE + "/mocap customize equipment apply-element <playback-id> <actor-index> <group-name> <preset-name>");
+            sender.sendMessage(ChatColor.WHITE + "/mocap customize equipment remove <playback-id>");
+            sender.sendMessage(ChatColor.WHITE + "/mocap customize equipment remove-element <playback-id> <actor-index>");
+            sender.sendMessage(ChatColor.WHITE + "/mocap customize equipment mix <playback-id> <group-name> <preset-1> <preset-2> [<preset-3> ...]");
             sender.sendMessage(ChatColor.WHITE + "/mocap customize equipment randomize <playback-id> <group-name>");
             sender.sendMessage(ChatColor.YELLOW + "ARGUMENT GUIDE");
             sender.sendMessage(ChatColor.GRAY + "group-name: preset folder; TAB lists existing groups. Save can create a new group.");
@@ -944,6 +947,9 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(ChatColor.GRAY + "playback-id: first number shown by /mocap playback list.");
             sender.sendMessage(ChatColor.GRAY + "actor-index: one-based actor position (1, 2, 3...) in that playback; TAB lists valid indexes.");
             sender.sendMessage(ChatColor.GRAY + "save records your current main/off hand plus helmet, chestplate, leggings, and boots.");
+            sender.sendMessage(ChatColor.GRAY + "remove clears only helmet/chestplate/leggings/boots; hands stay unchanged.");
+            sender.sendMessage(ChatColor.GRAY + "mix assigns one randomly selected saved preset from your chosen list to each actor.");
+            sender.sendMessage(ChatColor.GRAY + "auto is a separate top completion item for saved name/skin library groups.");
             sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
             return;
         }
@@ -985,6 +991,28 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage(playbacks.applyPresetToActor(args[2], index, preset)
                         ? ChatColor.GREEN + "Applied " + args[4] + "/" + args[5] + " to actor " + index + " in playback " + args[2] + "."
                         : ChatColor.RED + "Playback ID was not found or actor-index " + index + " is outside this playback's actor count. Run /mocap playback list and use TAB after apply-element.");
+            }
+            case "remove" -> {
+                if (args.length < 3) { usage(sender, "/mocap customize equipment remove <playback-id>"); return; }
+                sender.sendMessage(playbacks.removeArmor(args[2])
+                        ? ChatColor.GREEN + "Removed armor from every actor in playback " + args[2] + ". Main/off-hand items were preserved."
+                        : ChatColor.RED + "Playback ID " + args[2] + " was not found. Run /mocap playback list.");
+            }
+            case "remove_element", "remove-element" -> {
+                if (args.length < 4) { usage(sender, "/mocap customize equipment remove-element <playback-id> <actor-index>"); return; }
+                int index = parseBoundedInteger(args[3], "actor-index", 1, MocapSceneStore.MAX_ELEMENTS);
+                sender.sendMessage(playbacks.removeArmorFromActor(args[2], index)
+                        ? ChatColor.GREEN + "Removed armor from actor " + index + " in playback " + args[2] + ". Main/off-hand items were preserved."
+                        : ChatColor.RED + "Playback ID was not found or actor-index " + index + " is outside this playback's actor count.");
+            }
+            case "mix" -> {
+                if (args.length < 6) { usage(sender, "/mocap customize equipment mix <playback-id> <group-name> <preset-1> <preset-2> [<preset-3> ...]"); return; }
+                String playbackId = args[2];
+                String group = args[3];
+                List<String> selected = Arrays.stream(Arrays.copyOfRange(args, 4, args.length)).map(String::trim).filter(s -> !s.isEmpty()).toList();
+                sender.sendMessage(playbacks.mixPresets(playbackId, group, selected)
+                        ? ChatColor.GREEN + "Mixed " + selected.size() + " selected armor/equipment sets across playback " + playbackId + ". Each actor received one randomly selected set."
+                        : ChatColor.RED + "Playback ID " + playbackId + " was not found. Run /mocap playback list.");
             }
             case "randomize" -> {
                 if (args.length < 4) { usage(sender, "/mocap customize equipment randomize <playback-id> <group-name>"); return; }
@@ -1430,7 +1458,7 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
 
         if (action.equals("equipment")) {
             if (rel == 2) {
-                return filter(List.of("help", "save", "list", "delete", "apply", "apply-element", "randomize"), args[base + 1]);
+                return filter(List.of("help", "save", "list", "delete", "apply", "apply-element", "remove", "remove-element", "mix", "randomize"), args[base + 1]);
             }
             if (rel < 3) return List.of();
             String sub = args[base + 1].toLowerCase(Locale.ROOT);
@@ -1441,7 +1469,7 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
                 return switch (sub) {
                     case "save" -> equipmentGroupSuggestions(prefix, true);
                     case "list", "delete" -> equipmentGroupSuggestions(prefix, false);
-                    case "apply", "apply-element", "randomize" -> playbackIdSuggestions(prefix);
+                    case "apply", "apply-element", "remove", "remove-element", "mix", "randomize" -> playbackIdSuggestions(prefix);
                     default -> List.of();
                 };
             }
@@ -1457,7 +1485,12 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
                         yield indexes.isEmpty() && (prefix == null || prefix.isBlank())
                                 ? List.of("<actor-index:use-playback-list>") : filter(indexes, prefix);
                     }
-                    case "randomize" -> equipmentGroupSuggestions(prefix, false);
+                    case "randomize", "mix" -> equipmentGroupSuggestions(prefix, false);
+                    case "remove-element" -> {
+                        List<String> indexes = playbacks.actorIndexes(args[base + 2]);
+                        yield indexes.isEmpty() && (prefix == null || prefix.isBlank())
+                                ? List.of("<actor-index:use-playback-list>") : filter(indexes, prefix);
+                    }
                     default -> List.of();
                 };
             }
@@ -1466,10 +1499,14 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
                 return switch (sub) {
                     case "apply" -> equipmentPresetSuggestions(args[base + 3], prefix, false);
                     case "apply-element" -> equipmentGroupSuggestions(prefix, false);
+                    case "mix" -> equipmentPresetSuggestions(args[base + 3], prefix, false);
                     default -> List.of();
                 };
             }
 
+            if (rel >= 6 && sub.equals("mix")) {
+                return equipmentPresetSuggestions(args[base + 3], prefix, false);
+            }
             if (rel == 6 && sub.equals("apply-element")) {
                 return equipmentPresetSuggestions(args[base + 4], prefix, false);
             }
