@@ -95,12 +95,12 @@ def main():
  rel="common/src/main/java/net/mt1006/mocap/mocap/playing/playback/RecordingPlayback.java"
  s=rd(target,rel)
  for old,new in [
-  ("ctx.getMainEntity().noPhysics = enabled;","ctx.getMainEntity().setNoPhysics(enabled);"),
-  ("ctx.getMainEntity().noPhysics = lowLagMode;","ctx.getMainEntity().setNoPhysics(lowLagMode);"),
-  ("fakePlayer.noPhysics = enabled;","fakePlayer.setNoPhysics(enabled);"),
-  ("fakePlayer.noPhysics = lowLagMode;","fakePlayer.setNoPhysics(lowLagMode);")]:
+  ("ctx.getMainEntity().noPhysics = enabled;","ctx.getMainEntity().noPhysics = enabled;"),
+  ("ctx.getMainEntity().noPhysics = lowLagMode;","ctx.getMainEntity().noPhysics = lowLagMode;"),
+  ("fakePlayer.noPhysics = enabled;","fakePlayer.noPhysics = enabled;"),
+  ("fakePlayer.noPhysics = lowLagMode;","fakePlayer.noPhysics = lowLagMode;")]:
   s=s.replace(old,new)
- if ".noPhysics =" in s: raise RuntimeError("26.1 noPhysics field left in 1.21.11 code")
+ if "setNoPhysics(" in s: raise RuntimeError("Unsupported noPhysics setter left in 1.21.11 code")
  wr(target,rel,s)
  rel="common/src/main/java/net/mt1006/mocap/mocap/playing/playback/ScenePlayback.java"
  s=rd(target,rel).replace("recording.getStartPos()","recording.startPos")
@@ -202,7 +202,7 @@ def main():
   "random names":'literal("random_names")' in rd(target,"common/src/main/java/net/mt1006/mocap/command/commands/ScenesCommand.java"),
   "equipment registration":"EquipmentCommand.getArgumentBuilder()" in rd(target,"common/src/main/java/net/mt1006/mocap/command/commands/MocapCommand.java"),
   "name-tag packet":"NAME_TAG_VISIBILITY_BATCH" in rd(target,"common/src/main/java/net/mt1006/mocap/network/MocapPacketS2C.java"),
-  "1.21.11 physics API":"setNoPhysics(enabled)" in rd(target,"common/src/main/java/net/mt1006/mocap/mocap/playing/playback/RecordingPlayback.java"),
+  "1.21.11 physics API":"ctx.getMainEntity().noPhysics = enabled;" in rd(target,"common/src/main/java/net/mt1006/mocap/mocap/playing/playback/RecordingPlayback.java"),
   "loop recovery":"resetMainEntityForLoop" in rd(target,"common/src/main/java/net/mt1006/mocap/mocap/playing/playback/RecordingPlayback.java"),
  }
  missing=[k for k,v in checks.items() if not v]
