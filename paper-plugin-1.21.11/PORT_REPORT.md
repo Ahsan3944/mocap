@@ -4,9 +4,14 @@
 **Type:** Paper plugin JAR. It is not a Fabric/NeoForge mod.
 **Audit scope:** Source/command/static review plus CI evidence. No live Minecraft server was launched during this audit.
 
-## Status at audited code commit 995f5d4c6edb115e079122adbd644655ea8d0b24
+## Current command/argument audit and CI gates
 
-- Java 21 clean build, the current parser/scene JUnit suite (including parent modifier persistence, nested-scene recursion/depth guards and timing/transform serialization), JAR ZIP integrity, plugin.yml, main class and entrypoint checks: **PASS** in GitHub Actions run [40091053688](https://github.com/Ahsan3944/mocap/actions/runs/40091053688).
+- The command handler now suggests existing preset groups and group-scoped preset names for equipment save/delete/apply/randomize. The apply path uses argument order `playback-id → group-name → preset-name`; `apply-element` uses `playback-id → one-based actor-index → group-name → preset-name`.
+- The actor-index suggestions are generated from the selected active playback session. Numeric formation/time/transform arguments use named bracket hints rather than unlabeled choices such as `1, 3, 5`.
+- Formation syntax is `/mocap formation add <scene-name> <recording-name> <rows:1-1000> <columns:1-1000> <spacing-blocks:0.5-128>`. Rows are the Z axis, columns the X axis, and the product is limited to 1,000 additions per call.
+- `/mocap customize names|skins <scene> auto` builds the random candidate pool from saved recorded profile names, scene name/skin references, and online players; assignments are persisted to the scene rather than re-rolled when replayed.
+- The Paper settings index now exposes all 36 upstream field names under `recording`, `playback`, and `advanced`. Only `playback_speed`, `can_push_entities`, and `invulnerable_playback` currently have writable/persisted Paper behavior. Other fields are explicitly marked upstream-only and rejected on set; they are not falsely reported as implemented.
+- Java 21 clean build, parser/scene/equipment/settings JUnit tests, JAR ZIP integrity, plugin.yml, main class and entrypoint checks, source bundle creation, and SHA-256 checks are required for the current code commit. The newest run must be checked at [GitHub Actions](https://github.com/Ahsan3944/mocap/actions?query=branch%3Apaper-1.21.11).
 - In-game command/TAB behavior, Fabric/Paper visual comparison, multi-actor playback, recording for 30 minutes, profile resolution, equipment restart persistence and long-loop runtime acceptance: **NOT RUN**.
 - Full upstream feature parity: **NOT achieved**. See the feature matrix and source command reference linked below.
 
@@ -22,7 +27,7 @@
 
 - Paper recording does **not** capture block actions, chat, inventory/equipment changes as recorded actions, damage/combat, entity add/remove/mount, or custom extension actions.
 - Paper Mannequins are not fake upstream ServerPlayer actors. Packet-level animation and original server/client entity behavior cannot be assumed.
-- The original typed `settings` registry is **not implemented** in the Paper port. `/mocap settings` currently prints a limitations/help message instead of listing and changing the original `recording`, `playback`, and `advanced` settings. This is not parity.
+- The original typed `settings` behavior is **partially implemented** in the Paper port. The index lists all 36 upstream fields, but only `playback_speed`, `can_push_entities`, and `invulnerable_playback` are supported and persisted. Other fields show `UPSTREAM-ONLY` and cannot be set; the full original typed validation and semantics are not ported. This is not full parity.
 - The original `misc` group (`sync`, `clear_cache`, `refresh_suggestions`, `extensions`) is not implemented as upstream behavior in Paper.
 - The original `playback modifiers set/list/reset/add_to` command context is not fully implemented in Paper.
 - `scenes add_to` has a simplified Paper argument list and is not syntax-equivalent to upstream's full modifier tree (including optional X/Y/Z offsets and modifier/config options).
@@ -50,11 +55,11 @@ Do not mark the long-running loop bug as fixed until these checks pass and the u
 - [Original Mocap Command Reference](audit/MOCAP-ORIGINAL-COMMAND-REFERENCE.md)
 - [Original upstream source](https://github.com/mt1006/mc-mocap-mod/tree/26.1)
 - [UltraOP Paper branch](https://github.com/Ahsan3944/mocap/tree/paper-1.21.11)
-- [CI build and tests](https://github.com/Ahsan3944/mocap/actions/runs/40086999601)
+- [Latest CI build and tests](https://github.com/Ahsan3944/mocap/actions?query=branch%3Apaper-1.21.11)
 
 ## JUnit coverage currently evidenced
 
-The checked-in tests cover encoder-to-parser round-trip (movement/rotation/pose and recorded player name), malformed/truncated/unsupported recording inputs, scene version validation, traversal guard, selected scene create/add/modify/rename/remove flows and refusal to overwrite a copied scene target. These tests do not yet cover every command, every original setting/API, all modifier semantics, all item components, or actual server/client playback.
+The current checked-in tests cover encoder-to-parser round-trip (movement/rotation/pose and recorded player name), malformed/truncated/unsupported recording inputs, scene version validation, traversal guard, scene create/add/modify/rename/remove flows, refusal to overwrite a copied scene target, nested scene recursion/depth checks, recorded-profile autocomplete input, equipment group/preset file listing and safe names, and Paper settings groups/persistence/unsupported-field rejection. These tests do not yet exercise every TabCompleter path, every original API, all modifier semantics, all item components/enchantments, or actual server/client playback.
 
 ## Required release gate
 
