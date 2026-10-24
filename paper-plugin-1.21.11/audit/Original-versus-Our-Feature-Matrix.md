@@ -151,3 +151,12 @@ Paper is not Fabric. The Paper build uses Paper 1.21.11 API and Mannequin actors
 - Paper clean build/tests: CI passed for the audited branch snapshot.
 - Runtime test on a real backup Paper 1.21.11 server: not run in this audit.
 - Release: prerelease artifacts are build outputs, not a 100%-parity final release.
+
+
+## Source and release traceability
+
+- Official default source branch `26.1` is the command-tree audit baseline; this matrix is not an assertion that all targets share identical runtime APIs.
+- Official target release: `v1.4-alpha-10+mc1.21.11`, published 2025-12-31. The GitHub `/releases/latest` endpoint separately returns `Mocap-1.3.10`, published 2025-12-11; use the correct label depending on whether “latest” means the API-designated latest release or latest target-specific asset.
+- UltraOP branch names and target versions are separate: `main/core-26.1`, `fabric-1.21.11`, `paper-1.21.11`. A JAR built for one is not interchangeable with another.
+- Paper code commit audited before audit-document-only commits: `995f5d4c6edb115e079122adbd644655ea8d0b24`. The branch has subsequently had audit docs/README/workflow edits; always read the latest branch head and match release tag `target_commitish` to the JAR and source archive before distributing.
+- CI evidence: Paper build/tests and descriptor validation passed at run `40086999601` for source commit `995f5d4c6edb115e079122adbd644655ea8d0b24`. A later documentation workflow run passed build/test/JAR/source-package steps but failed at release publishing because the GitHub integration token received HTTP 403. This failure does not imply the JAR failed to build; neither does build success imply runtime acceptance.
