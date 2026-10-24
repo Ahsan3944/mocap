@@ -19,9 +19,12 @@ public final class ProfileLibraryStore {
     private static final Pattern SAFE = Pattern.compile("[A-Za-z0-9][A-Za-z0-9_.-]{0,47}");
     private static final Pattern PROFILE = Pattern.compile("[A-Za-z0-9_]{1,16}");
     public static final int MAX_ENTRIES_PER_LIST = 3000;
+    private static final long MAX_IMPORT_BYTES = 512 * 1024;
+    private static final Pattern SAFE_IMPORT_FILE = Pattern.compile("[A-Za-z0-9][A-Za-z0-9_.-]{0,63}\\\\.txt");
 
     public record Entry(String id, String value) {}
     private final Path root;
+    private final Path importsRoot;
 
     public ProfileLibraryStore(Path pluginDataFolder) throws IOException {
         root = pluginDataFolder.resolve("profile-libraries").toAbsolutePath().normalize();
