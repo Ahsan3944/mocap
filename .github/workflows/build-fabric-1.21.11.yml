@@ -1,0 +1,108 @@
+name: Build Mocap Fabric 1.21.11
+
+on:
+  push:
+    branches: [fabric-1.21.11]
+    paths:
+      - ".github/workflows/build-fabric-1.21.11.yml"
+      - ".port/port_fabric_1_21_11.py"
+      - "VERSION_BRANCHES.md"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Port feature core and build Fabric 1.21.11
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out version branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Prepare and validate the 1.21.11 source port
+        shell: bash
+        run: |
+          set -euo pipefail
+          script="$GITHUB_WORKSPACE/.port/port_fabric_1_21_11.py"
+          python3 -m py_compile "$script"
+          source_dir="$RUNNER_TEMP/mocap-fabric-1.21.11"
+          core_dir="$RUNNER_TEMP/mocap-core-26.1"
+          git clone --depth 1 --branch 'v1.4-alpha-10+mc1.21.11' https://github.com/mt1006/mc-mocap-mod.git "$source_dir"
+          test "$(git -C "$source_dir" rev-parse HEAD)" = "192f6f426bd4c02fbe1946a86480fcf6b6405a41"
+          git clone --depth 1 --branch main https://github.com/Ahsan3944/mocap.git "$core_dir"
+          python3 "$script" "$source_dir" "$core_dir"
+          mkdir -p "$source_dir/.github/workflows" "$source_dir/.port"
+          cp "$GITHUB_WORKSPACE/.github/workflows/build-fabric-1.21.11.yml" "$source_dir/.github/workflows/"
+          cp "$script" "$source_dir/.port/"
+          cp "$GITHUB_WORKSPACE/VERSION_BRANCHES.md" "$source_dir/"
+          rsync -a --delete --exclude='.git/' "$source_dir/" "$GITHUB_WORKSPACE/"
+          chmod +x ./gradlew
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No imported source changes were generated"
+            exit 1
+          fi
+          git commit -m "Port Mocap feature core to Minecraft 1.21.11 Fabric"
+          source_sha="$(git rev-parse HEAD)"
+          git push origin HEAD:fabric-1.21.11
+          echo "BUILD_SOURCE_SHA=$source_sha" >> "$GITHUB_ENV"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build Fabric mod
+        run: ./gradlew --no-daemon --stacktrace :fabric:build
+
+      - name: Validate the installable Fabric JAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          fabric_jar="$(find fabric/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-dev.jar' ! -name '*-plain.jar' -size +10k -print -quit)"
+          test -n "$fabric_jar"
+          unzip -t "$fabric_jar" >/dev/null
+          unzip -l "$fabric_jar" | grep -q 'fabric.mod.json'
+          unzip -l "$fabric_jar" | grep -q 'net/mt1006/mocap/MocapModFabric.class'
+          python3 - "$fabric_jar" <<'PY'
+          import json, sys, zipfile
+          with zipfile.ZipFile(sys.argv[1]) as archive:
+              meta = json.loads(archive.read("fabric.mod.json"))
+          assert meta.get("id") == "mocap", meta.get("id")
+          mc = meta.get("depends", {}).get("minecraft", "")
+          assert "1.21.11" in mc, mc
+          print("Validated Fabric metadata:", meta.get("version"), "Minecraft:", mc)
+          PY
+          echo "Validated archive: $fabric_jar"
+
+      - name: Upload verified Fabric JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: mocap-fabric-1.21.11-uop1
+          if-no-files-found: error
+          retention-days: 90
+          path: |
+            fabric/build/libs/*.jar
+            !**/*-sources.jar
+            !**/*-dev.jar
+            !**/*-plain.jar
+
+      - name: Publish Fabric JAR as a GitHub prerelease
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          fabric_jar="$(find fabric/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-dev.jar' ! -name '*-plain.jar' -size +10k -print -quit)"
+          test -n "$fabric_jar"
+          tag="mocap-fabric-1.21.11-uop1-${BUILD_SOURCE_SHA:0:7}"
+          gh release create "$tag" --target "$BUILD_SOURCE_SHA" --title "Mocap Fabric 1.21.11 — UltraOP feature port" --notes "Built from the pinned official 1.21.11 source with feature backports from the 26.1 core. Java compilation, Fabric metadata, and JAR integrity passed. Live Minecraft regression and performance tests are still required." --prerelease "$fabric_jar"
