@@ -69,6 +69,7 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
                 case "names", "name" -> profileLibraryCommand(sender, args, "names");
                 case "skins", "skin" -> profileLibraryCommand(sender, args, "skins");
                 case "formation" -> formationCommand(sender, args);
+                case "paste" -> pasteCommand(sender, args);
                 case "copy" -> copyCommand(sender, args);
                 default -> {
                     sender.sendMessage("Unknown Mocap command group: " + args[0]);
@@ -870,14 +871,31 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             return;
         }
         String action = args[1].toLowerCase(Locale.ROOT);
-        if (!eq(action, "add")) {
+        if (action.equals("tool")) {
+            if (!(sender instanceof Player player)) {
+                sender.sendMessage(ChatColor.RED + "Only a player can receive and use the placement tool.");
+                return;
+            }
+            plugin.givePlacementTool(player);
+            return;
+        }
+        if (action.equals("paste")) {
+            if (args.length < 3) {
+                usage(sender, "/mocap formation paste <recording-name|.scene-name> [loop]");
+                sender.sendMessage(ChatColor.GRAY + "First use /mocap formation tool, right-click the target block, then paste the selected recording or complete scene.");
+                return;
+            }
+            pasteAtAnchor(sender, args[2], args.length >= 4 && args[3].equalsIgnoreCase("loop"));
+            return;
+        }
+        if (!action.equals("add")) {
             sender.sendMessage(ChatColor.RED + "Unknown formation action: " + action);
             formationHelp(sender);
             return;
         }
         if (args.length < 7) {
-            sender.sendMessage(ChatColor.YELLOW + "Usage: /mocap formation add <scene-name> <recording-name> <rows:1-1000> <columns:1-1000> <spacing-blocks:0.5-128>");
-            sender.sendMessage(ChatColor.GRAY + "Order: destination scene → source saved recording → rows (Z) → columns (X) → spacing in blocks.");
+            sender.sendMessage(ChatColor.YELLOW + "Usage: /mocap formation add <scene-name> <recording-name> <rows:1-1000> <columns:1-1000> <column-gap:0-128> <row-gap:0-128>");
+            sender.sendMessage(ChatColor.GRAY + "For backwards compatibility, the old single-gap form with only <spacing-blocks> remains supported.");
             return;
         }
 
@@ -890,29 +908,70 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             throw new IOException("Formation rows × columns is " + actorCount + "; maximum is "
                     + MocapSceneStore.MAX_FORMATION_ADDITIONS + " actors. Reduce rows or columns.");
         }
-        double spacing = parseBoundedDecimal(args[6], "spacing-blocks", 0.5, 128.0);
-        scenes.addFormation(sceneName, recordingName, rows, columns, spacing);
+        double columnGap;
+        double rowGap;
+        if (args.length == 7) {
+            // Keep existing scripts valid: old one-gap syntax controls both dimensions.
+            columnGap = parseBoundedDecimal(args[6], "spacing-blocks", 0.0, 128.0);
+            rowGap = columnGap;
+        } else {
+            columnGap = parseBoundedDecimal(args[6], "column-gap", 0.0, 128.0);
+            rowGap = parseBoundedDecimal(args[7], "row-gap", 0.0, 128.0);
+        }
+        scenes.addFormation(sceneName, recordingName, rows, columns, columnGap, rowGap);
         sender.sendMessage(ChatColor.GREEN + "Formation added to scene ." + MocapSceneStore.normalizeSceneName(sceneName) + ".");
         sender.sendMessage(ChatColor.GRAY + "Source recording: " + ChatColor.WHITE + recordingName
                 + ChatColor.GRAY + " | Rows (behind): " + ChatColor.AQUA + rows
                 + ChatColor.GRAY + " | Columns (right): " + ChatColor.AQUA + columns
-                + ChatColor.GRAY + " | Spacing: " + ChatColor.AQUA + spacing + " blocks"
+                + ChatColor.GRAY + " | Column gap: " + ChatColor.AQUA + columnGap + " blocks"
+                + ChatColor.GRAY + " | Row gap: " + ChatColor.AQUA + rowGap + " blocks"
                 + ChatColor.GRAY + " | Actors added: " + ChatColor.GREEN + actorCount);
+    }
+
+    private void pasteCommand(CommandSender sender, String[] args) throws IOException {
+        if (args.length == 1 || eq(args[1], "help")) {
+            sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "MOCAP PLACEMENT");
+            sender.sendMessage(ChatColor.WHITE + "/mocap formation tool");
+            sender.sendMessage(ChatColor.WHITE + "/mocap paste <recording-name|.scene-name> [loop]");
+            sender.sendMessage(ChatColor.GRAY + "Hold the named Blaze Rod, right-click the target block, then run paste. The first actor is anchored at the clicked block's top center.");
+            return;
+        }
+        pasteAtAnchor(sender, args[1], args.length >= 3 && args[2].equalsIgnoreCase("loop"));
+    }
+
+    private void pasteAtAnchor(CommandSender sender, String playableName, boolean loop) throws IOException {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(ChatColor.RED + "Paste requires a player placement anchor. Run it in-game after selecting the target block.");
+            return;
+        }
+        Location anchor = plugin.placementAnchor(player);
+        if (anchor == null) {
+            sender.sendMessage(ChatColor.RED + "No placement anchor is set. Run /mocap formation tool, then right-click the target block with the named Blaze Rod.");
+            return;
+        }
+        if (anchor.getWorld() == null) throw new IOException("The saved placement anchor's world is no longer available; select the target block again.");
+        String id = playbacks.start(playableName, anchor.getWorld(), loop, anchor);
+        sender.sendMessage(ChatColor.GREEN + "Pasted " + ChatColor.AQUA + playableName + ChatColor.GREEN
+                + " at " + ChatColor.WHITE + anchor.getBlockX() + " " + anchor.getBlockY() + " " + anchor.getBlockZ()
+                + ChatColor.GREEN + ". Playback ID: " + ChatColor.YELLOW + id
+                + (loop ? ChatColor.GREEN + " (looping)" : "") + ChatColor.GRAY + ". The first actor is anchored here; the rest keep their saved offsets.");
     }
 
     private static void formationHelp(CommandSender sender) {
         sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "          FORMATION BUILDER");
-        sender.sendMessage(ChatColor.WHITE + "/mocap formation add <scene-name> <recording-name> <rows:1-1000> <columns:1-1000> <spacing-blocks:0.5-128>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap formation add <scene-name> <recording-name> <rows:1-1000> <columns:1-1000> <column-gap:0-128> <row-gap:0-128>");
+        sender.sendMessage(ChatColor.GRAY + "Legacy: /mocap formation add <scene> <recording> <rows> <columns> <spacing> (same gap in both directions).");
+        sender.sendMessage(ChatColor.WHITE + "/mocap formation tool");
+        sender.sendMessage(ChatColor.WHITE + "/mocap formation paste <recording-name|.scene-name> [loop]");
+        sender.sendMessage(ChatColor.WHITE + "/mocap paste <recording-name|.scene-name> [loop]");
         sender.sendMessage(ChatColor.YELLOW + "ARGUMENT GUIDE");
-        sender.sendMessage(ChatColor.GRAY + "scene-name: existing destination scene; the formation is saved into this scene.");
-        sender.sendMessage(ChatColor.GRAY + "recording-name: an existing saved recording copied into every grid position.");
-        sender.sendMessage(ChatColor.GRAY + "rows: rows added behind the source character, aligned to the recorded starting yaw.");
-        sender.sendMessage(ChatColor.GRAY + "columns: actors added to the source character's right, relative to the recorded starting yaw.");
-        sender.sendMessage(ChatColor.GRAY + "spacing-blocks: distance between actors, in Minecraft blocks (0.5–128).");
-        sender.sendMessage(ChatColor.GRAY + "Example: /mocap formation add battle warrior 3 5 2");
-        sender.sendMessage(ChatColor.GRAY + "This example adds 15 actor elements using warrior, with 3 rows × 5 columns and 2-block spacing.");
-        sender.sendMessage(ChatColor.GRAY + "Limits: at most 1,000 additions per formation and 5,000 elements per scene.");
+        sender.sendMessage(ChatColor.GRAY + "scene-name: existing destination scene; recording-name: existing saved recording copied into every grid position.");
+        sender.sendMessage(ChatColor.GRAY + "rows: rows behind the source character. columns: actors to the source character's right, relative to the saved starting yaw.");
+        sender.sendMessage(ChatColor.GRAY + "column-gap: side-to-side distance. row-gap: front-to-back distance. These are independent.");
+        sender.sendMessage(ChatColor.GRAY + "The original source actor stays at row 1/column 1 at zero offset; it is not centered.");
+        sender.sendMessage(ChatColor.GRAY + "Placement tool: receive the named Blaze Rod, right-click the target block, then paste a recording or full .scene at that anchor.");
+        sender.sendMessage(ChatColor.GRAY + "Rows × columns are limited to 1,000 additions per formation; each Scene is limited to 5,000 elements.");
         sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     }
 
@@ -1201,12 +1260,20 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
                 "end_freeze", "low_lag", "nametags", "modifiers").contains(root)) return rootPlaybackAliasSuggestions(args);
         if (List.of("random_names", "random_skins", "set_name").contains(root)) return rootCustomizeAliasSuggestions(args);
         if (root.equals("formation")) {
-            if (args.length == 2) return filter(List.of("help", "add"), args[1]);
+            if (args.length == 2) return filter(List.of("help", "add", "tool", "paste"), args[1]);
             if (args.length == 3 && args[1].equalsIgnoreCase("add")) return sceneNameSuggestions(args[2]);
             if (args.length == 4 && args[1].equalsIgnoreCase("add")) return recordingNameSuggestions(args[3]);
             if (args.length == 5 && args[1].equalsIgnoreCase("add")) return filterOrHint(List.of(), args[4], "<rows:1-1000>");
             if (args.length == 6 && args[1].equalsIgnoreCase("add")) return filterOrHint(List.of(), args[5], "<columns:1-1000>");
-            if (args.length == 7 && args[1].equalsIgnoreCase("add")) return filterOrHint(List.of(), args[6], "<spacing-blocks:0.5-128>");
+            if (args.length == 7 && args[1].equalsIgnoreCase("add")) return filterOrHint(List.of(), args[6], "<column-gap:0-128; side-to-side>");
+            if (args.length == 8 && args[1].equalsIgnoreCase("add")) return filterOrHint(List.of(), args[7], "<row-gap:0-128; front-to-back>");
+            if (args.length == 3 && args[1].equalsIgnoreCase("paste")) return playableNameSuggestions(args[2]);
+            if (args.length == 4 && args[1].equalsIgnoreCase("paste")) return filter(List.of("loop"), args[3]);
+            return List.of();
+        }
+        if (root.equals("paste")) {
+            if (args.length == 2) return playableNameSuggestions(args[1]);
+            if (args.length == 3) return filter(List.of("loop"), args[2]);
             return List.of();
         }
         if (root.equals("copy")) {
@@ -1414,7 +1481,7 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
     }
 
     private List<String> rootSuggestions(String prefix) {
-        return filter(List.of("help", "info", "recording", "recordings", "scenes", "scene", "playing", "playback", "settings", "customize", "formation", "copy", "names", "skins", "name", "skin"), prefix);
+        return filter(List.of("help", "info", "recording", "recordings", "scenes", "scene", "playing", "playback", "settings", "customize", "formation", "paste", "copy", "names", "skins", "name", "skin"), prefix);
     }
 
     private List<String> playerAndSelectorSuggestions(String prefix) {
