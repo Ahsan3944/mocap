@@ -131,42 +131,43 @@ def main():
 
  rel="common/src/main/java/net/mt1006/mocap/utils/ProfileUtils.java"
  s=rd(target,rel)
- s=rep(s,"import java.util.UUID;\n","import java.util.UUID;\nimport java.util.Set;\nimport java.util.concurrent.ArrayBlockingQueue;\nimport java.util.concurrent.ConcurrentHashMap;\nimport java.util.concurrent.RejectedExecutionException;\nimport java.util.concurrent.ThreadPoolExecutor;\nimport java.util.concurrent.TimeUnit;\n",rel)
- s=s.replace("import java.util.concurrent.ExecutorService;\n","").replace("import java.util.concurrent.Executors;\n","")
- fields="""\tprivate static final Set<String> prefetchInFlight = ConcurrentHashMap.newKeySet();
-\tprivate static final int MAX_QUEUED_PROFILE_PREFETCHES = 256;
-\tprivate static final ThreadPoolExecutor prefetchExecutor = new ThreadPoolExecutor(
-\t\t\t2, 2, 0L, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(MAX_QUEUED_PROFILE_PREFETCHES), runnable ->
-\t{
-\t\tThread thread = new Thread(runnable, "Mocap profile prefetch");
-\t\tthread.setDaemon(true);
-\t\treturn thread;
-\t}, new ThreadPoolExecutor.AbortPolicy());
-"""
- s=rep(s,"public class ProfileUtils\n{\n","public class ProfileUtils\n{\n"+fields,rel)
- prefetch="""public static void prefetchProfileAsync(MinecraftServer server, String name)
-\t{
-\t\tif (name == null || !StringUtil.isValidPlayerName(name)) { return; }
-\t\tif (getFromCache(MocapPlayerNameHandling.IGNORE_AND_REPLACE_CASING, name, true) != null) { return; }
-\t\tString key = name.toLowerCase(Locale.ROOT);
-\t\tif (!prefetchInFlight.add(key)) { return; }
-\t\ttry
-\t\t{
-\t\t\tprefetchExecutor.execute(() ->
-\t\t\t{
-\t\t\t\ttry { getProfile(server, MocapPlayerNameHandling.IGNORE_AND_REPLACE_CASING, name, true); }
-\t\t\t\tcatch (RuntimeException e) { net.mt1006.mocap.MocapMod.LOGGER.debug("Background profile prefetch failed for {}", name, e); }
-\t\t\t\tfinally { prefetchInFlight.remove(key); }
-\t\t\t});
-\t\t}
-\t\tcatch (RejectedExecutionException e)
-\t\t{
-\t\t\tprefetchInFlight.remove(key);
-\t\t\tnet.mt1006.mocap.MocapMod.LOGGER.debug("Profile prefetch queue is full; deferring lookup for {}", name);
-\t\t}
-\t}"""
- s=rep(s,"public static GameProfile createGameProfile(",prefetch+"\n\n\tpublic static GameProfile createGameProfile(",rel)
- wr(target,rel,s)
+ if "MAX_QUEUED_PROFILE_PREFETCHES" not in s:
+  s=rep(s,"import java.util.UUID;\n","import java.util.UUID;\nimport java.util.Set;\nimport java.util.concurrent.ArrayBlockingQueue;\nimport java.util.concurrent.ConcurrentHashMap;\nimport java.util.concurrent.RejectedExecutionException;\nimport java.util.concurrent.ThreadPoolExecutor;\nimport java.util.concurrent.TimeUnit;\n",rel)
+  s=s.replace("import java.util.concurrent.ExecutorService;\n","").replace("import java.util.concurrent.Executors;\n","")
+  fields="""\tprivate static final Set<String> prefetchInFlight = ConcurrentHashMap.newKeySet();
+ \tprivate static final int MAX_QUEUED_PROFILE_PREFETCHES = 256;
+ \tprivate static final ThreadPoolExecutor prefetchExecutor = new ThreadPoolExecutor(
+ \t\t\t2, 2, 0L, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(MAX_QUEUED_PROFILE_PREFETCHES), runnable ->
+ \t{
+ \t\tThread thread = new Thread(runnable, "Mocap profile prefetch");
+ \t\tthread.setDaemon(true);
+ \t\treturn thread;
+ \t}, new ThreadPoolExecutor.AbortPolicy());
+ """
+  s=rep(s,"public class ProfileUtils\n{\n","public class ProfileUtils\n{\n"+fields,rel)
+  prefetch="""public static void prefetchProfileAsync(MinecraftServer server, String name)
+ \t{
+ \t\tif (name == null || !StringUtil.isValidPlayerName(name)) { return; }
+ \t\tif (getFromCache(MocapPlayerNameHandling.IGNORE_AND_REPLACE_CASING, name, true) != null) { return; }
+ \t\tString key = name.toLowerCase(Locale.ROOT);
+ \t\tif (!prefetchInFlight.add(key)) { return; }
+ \t\ttry
+ \t\t{
+ \t\t\tprefetchExecutor.execute(() ->
+ \t\t\t{
+ \t\t\t\ttry { getProfile(server, MocapPlayerNameHandling.IGNORE_AND_REPLACE_CASING, name, true); }
+ \t\t\t\tcatch (RuntimeException e) { net.mt1006.mocap.MocapMod.LOGGER.debug("Background profile prefetch failed for {}", name, e); }
+ \t\t\t\tfinally { prefetchInFlight.remove(key); }
+ \t\t\t});
+ \t\t}
+ \t\tcatch (RejectedExecutionException e)
+ \t\t{
+ \t\t\tprefetchInFlight.remove(key);
+ \t\t\tnet.mt1006.mocap.MocapMod.LOGGER.debug("Profile prefetch queue is full; deferring lookup for {}", name);
+ \t\t}
+ \t}"""
+  s=rep(s,"public static GameProfile createGameProfile(",prefetch+"\n\n\tpublic static GameProfile createGameProfile(",rel)
+  wr(target,rel,s)
 
  rel="common/src/main/java/net/mt1006/mocap/events/PlayerConnectionEvent.java"
  s=rd(target,rel)
@@ -203,9 +204,9 @@ def main():
 
  rel="README.md"
  s=rd(target,rel)
- s+="""\n\n# UltraOP feature backport (1.21.11)\n\nThis branch targets Minecraft 1.21.11 on Fabric. It backports saved random scene names and skin profiles, formation building, scene placement anchors, freeze/unfreeze/end-freeze controls, grouped equipment presets, name-tag controls, collision-light playback, scene safety limits, and loop recovery.\n\nRandomized names and skin profile names are saved to the scene and do not reroll on replay. Individual actor names can still be changed using the existing scene modifier command. Random name/skin assignment rejects scenes containing nested elements. Low-lag mode only reduces collision and fake-player bookkeeping costs; it does not guarantee smooth playback with hundreds or thousands of visible actors.\n\nInstall this JAR only on Fabric 1.21.11. It is not a Paper plugin. Build success does not replace in-game regression tests, including the 30-minute loop test and multi-actor performance benchmark.\n"""
+ s+="""\n\n# UltraOP feature backport (1.21.11)\n\nThis branch targets Minecraft 1.21.11 on Fabric. It backports saved random scene names and skin profiles, formation building, scene placement anchors, freeze/unfreeze/end-freeze controls, grouped equipment presets, name-tag controls, collision-light playback, scene safety limits, and loop recovery.\n\nRandomized names and skin profile names are saved to the scene and do not reroll on replay. Individual actor names can still be changed using the existing scene modifier command. Random name/skin assignment rejects scenes containing nested elements. Skin prefetch uses two daemon workers and a bounded 256-entry queue; overflow requests are deferred without blocking the server thread. Low-lag mode only reduces collision and fake-player bookkeeping costs; it does not guarantee smooth playback with hundreds or thousands of visible actors.\n\nInstall this JAR only on Fabric 1.21.11. It is not a Paper plugin. Build success does not replace in-game regression tests, including the 30-minute loop test and multi-actor performance benchmark.\n"""
  wr(target,rel,s)
- report="""# Fabric 1.21.11 Feature Port — Verification Report\n\n## Source and target\n- Base: official Mocap tag v1.4-alpha-10+mc1.21.11.\n- Pinned upstream commit: 192f6f426bd4c02fbe1946a86480fcf6b6405a41.\n- Target: Minecraft 1.21.11, Java 21, Fabric; separate from the Minecraft 26.1 core branch.\n\n## Backported feature groups\n- Playback safety: bounded scheduler, speed validation, exception cleanup, resource-stack cleanup, recursive-scene detection, transactional scene parsing, actor/scene caps, and loop actor recovery.\n- Scene authoring: persisted random names/skins, grid formations, scene copy placement anchor, and bulk scene updates.\n- Playback controls: freeze/unfreeze, end-freeze, name-tag visibility sync, and collision-light playback.\n- Equipment presets: persistent groups, apply to playback tree or scene element, and randomize per actor.\n- Network safety: UTF-8 byte lengths, bounded packet reads, and versioned name-tag visibility packets.\n\n## Verification policy\nThe GitHub Actions workflow compiles Fabric on Java 21, checks ZIP integrity, verifies Fabric metadata and entrypoint, uploads the artifact, and publishes a prerelease only after successful checks. Build success does not prove live behavior is bug-free. Before production use, test 10s/30s/60s recordings for 30 minutes, confirm persistence across restart, test nested cleanup/presets/name tags, and benchmark 50/100/250/500/1000 actors with server MSPT, memory, traffic, and client FPS.\n\nPaper is a separate plugin port; this Fabric mod cannot be installed as a Paper plugin.\n"""
+ report="""# Fabric 1.21.11 Feature Port — Verification Report\n\n## Source and target\n- Base: official Mocap tag v1.4-alpha-10+mc1.21.11.\n- Pinned upstream commit: 192f6f426bd4c02fbe1946a86480fcf6b6405a41.\n- Target: Minecraft 1.21.11, Java 21, Fabric; separate from the Minecraft 26.1 core branch.\n\n## Backported feature groups\n- Playback safety: bounded scheduler, speed validation, exception cleanup, resource-stack cleanup, recursive-scene detection, transactional scene parsing, actor/scene caps, and loop actor recovery.\n- Scene authoring: persisted random names/skins, grid formations, scene copy placement anchor, and bulk scene updates.\n- Playback controls: freeze/unfreeze, end-freeze, name-tag visibility sync, and collision-light playback.\n- Equipment presets: persistent groups, apply to playback tree or scene element, and randomize per actor.\n- Skin prefetch: two daemon workers, 256 pending queue cap, and safe handling of overflow requests.\n- Network safety: UTF-8 byte lengths, bounded packet reads, and versioned name-tag visibility packets.\n\n## Verification policy\nThe GitHub Actions workflow compiles Fabric on Java 21, checks ZIP integrity, verifies Fabric metadata and entrypoint, uploads the artifact, and publishes a prerelease only after successful checks. Build success does not prove live behavior is bug-free. Before production use, test 10s/30s/60s recordings for 30 minutes, confirm persistence across restart, test nested cleanup/presets/name tags, and benchmark 50/100/250/500/1000 actors with server MSPT, memory, traffic, and client FPS.\n\nPaper is a separate plugin port; this Fabric mod cannot be installed as a Paper plugin.\n"""
  wr(target,"FABRIC_1.21.11_PORT_REPORT.md",report)
 
  checks={
