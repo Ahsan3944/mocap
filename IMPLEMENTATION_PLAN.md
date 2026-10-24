@@ -1,6 +1,6 @@
 # Motion Capture Mod 26.1 — Implementation and Verification Ledger
 
-This ledger distinguishes source implementation from verified behavior. **No feature in this update is marked runtime-verified**, because this environment could not resolve the build plugins/dependencies and has only Java 21 while Minecraft 26.1 requires Java 25.
+This ledger distinguishes source implementation from verified behavior. **Java 25 compilation and JAR packaging are verified by GitHub Actions; live Minecraft runtime behavior and performance are not yet verified.** The release workflow builds Fabric and NeoForge separately, checks archive integrity and loader metadata, and publishes only after successful checks.
 
 ## A. Stability, persistence, and playback
 
@@ -34,20 +34,19 @@ This ledger distinguishes source implementation from verified behavior. **No fea
 ## C. Release and build
 
 - Target: Minecraft 26.1, Java 25, Fabric and NeoForge.
-- Removed the Foojay resolver settings plugin so an installed JDK 25 does not require that extra plugin just to configure the build.
-- Added root task `universalJar`, which depends on both loader JAR tasks and merges both loader descriptors/entrypoints into one archive. This packaging strategy itself still needs loader installation tests.
-- The root `universalJar` packaging task was smoke-tested with dummy loader archives; it merged both metadata files and unique classes successfully. This does not validate the real loader outputs.
-- Attempted `universalJar` with the supplied Gradle 9.2.1 distribution in offline mode. Build stopped before compilation because `net.fabricmc.fabric-loom:1.15-SNAPSHOT` was not present in the local Gradle cache. Online dependency resolution also fails in this environment with DNS errors (`UnknownHostException` for Gradle/Maven hosts).
-- Java available in the environment is OpenJDK 21. The supplied Java 25 archive is Windows x64, not a Linux JDK.
-- **No compiled JAR, Java compile, loader smoke test, Minecraft runtime test, or performance benchmark is claimed.**
+- The current source includes the `universalJar` Gradle task, but this combined archive is experimental and is not the release artifact validated by the workflow.
+- GitHub Actions compiles `:fabric:build` and `:neoforge:build`, validates each produced JAR with ZIP integrity checks, checks loader metadata and entrypoint classes, uploads a workflow artifact, and publishes a prerelease only if all these steps pass.
+- The released files are loader-specific: use the Fabric JAR on Fabric, or the NeoForge JAR on NeoForge.
+- See the current release list: https://github.com/Ahsan3944/mocap/releases
+- A successful build is not a live client/server test. The long-loop bug, nested scene interactions, visual name-tag behavior, profile service fallbacks, and the load/performance envelope still require acceptance tests.
 
-## D. Required acceptance tests before release
+## D. Required acceptance tests before production use
 
-1. Build `:common:compileJava`, `:fabric:jar`, `:neoforge:jar`, then `universalJar` on a network-enabled machine with JDK 25.
-2. Install the universal JAR in Fabric 26.1 and NeoForge 26.1 separately; verify each loader ignores the other loader's metadata and initializes its own entrypoint/mixins.
-3. Play an ordinary recording; test stop, stop-all, freeze/unfreeze, end-freeze, name-tag hide/show, low-lag toggle, and equipment preset application.
-4. Test scene with direct recordings, nested scenes, delays, transforms, and loops. Include recordings ending in death and actors removed externally.
-5. Test 10s/30s/60s recordings looping continuously for 30 minutes; record playback tick count, actor count, CPU, memory, and server MSPT.
-6. Test name assignment persistence after server restart and individual name edits; test invalid profile fallback and Mojang rate limits.
-7. Test malformed/legacy scenes, atomic save behavior, 5,000 element boundary, and duplicate/random equipment presets.
-8. Benchmark 50, 100, 250, 500 and 1,000 actors with clients observing them; document actual render/network limits instead of promising arbitrary actor counts.
+1. Install the Fabric JAR in Fabric 26.1 and the NeoForge JAR in NeoForge 26.1 separately; verify startup, metadata, entrypoints, and mixins.
+2. On both loaders, test ordinary playback, stop, stop-all, freeze/unfreeze, end-freeze, name-tag hide/show, low-lag toggle, and equipment preset application.
+3. Test nested scenes, delays, transforms, loops, and cleanup after failed partial startup. Include recordings ending in death and actors externally removed.
+4. Test 10s/30s/60s recordings looping continuously for 30 minutes; record playback tick count, actor count, CPU, memory, and server MSPT.
+5. Confirm random names remain fixed across replay and restart, then individually edit one name. Test random skins with cache hits, unavailable profiles, API rate limits, and start latency.
+6. Test equipment preset save/load across restart, empty slots, enchanted or custom-component items, both hand slots, nested scenes, and recorded equipment actions.
+7. Test malformed and legacy scenes, recursive scene references, atomic save behavior, and boundary cases at 5,000/5,001 elements and expanded actors.
+8. Benchmark 50, 100, 250, 500 and 1,000 actors with observing clients. Measure server MSPT, memory, CPU, network traffic, and client FPS. The configured 5,000-actor ceiling is a safety limit, not a guarantee that 5,000 visible actors will be smooth.
