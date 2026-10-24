@@ -894,7 +894,7 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             formationHelp(sender);
             return;
         }
-        if (args.length < 7) {
+        if (args.length < 7 || args.length > 8) {
             sender.sendMessage(ChatColor.YELLOW + "Usage: /mocap formation add <scene-name> <recording-name> <rows:1-1000> <columns:1-1000> <column-gap:0-128> <row-gap:0-128>");
             sender.sendMessage(ChatColor.GRAY + "For backwards compatibility, the old single-gap form with only <spacing-blocks> remains supported.");
             return;
@@ -934,10 +934,37 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "MOCAP PLACEMENT");
             sender.sendMessage(ChatColor.WHITE + "/mocap formation tool");
             sender.sendMessage(ChatColor.WHITE + "/mocap paste <recording-name|.scene-name> [loop]");
-            sender.sendMessage(ChatColor.GRAY + "Hold the named Blaze Rod, right-click the target block, then run paste. The first actor is anchored at the clicked block's top center.");
+        sender.sendMessage(ChatColor.WHITE + "/mocap paste <recording-name|.scene-name> <x> <y> <z> [loop]");
+            sender.sendMessage(ChatColor.WHITE + "/mocap paste <recording-name|.scene-name> <x> <y> <z> [loop]");
+            sender.sendMessage(ChatColor.GRAY + "Click mode: hold the named Blaze Rod, right-click a block, then run paste.");
+            sender.sendMessage(ChatColor.GRAY + "Coordinate mode: provide x y z in your current world. The first actor is anchored at that exact position.");
             return;
         }
-        pasteAtAnchor(sender, args[1], args.length >= 3 && args[2].equalsIgnoreCase("loop"));
+        if (args.length == 3 && args[2].equalsIgnoreCase("loop")) {
+            pasteAtAnchor(sender, args[1], true);
+            return;
+        }
+        if (args.length == 2) {
+            pasteAtAnchor(sender, args[1], false);
+            return;
+        }
+        if (args.length == 3) {
+            throw new IOException("Use /mocap paste <recording|.scene> [loop] or /mocap paste <recording|.scene> <x> <y> <z> [loop].");
+        }
+        if (args.length != 5 && args.length != 6) {
+            usage(sender, "/mocap paste <recording-name|.scene-name> <x> <y> <z> [loop]");
+            return;
+        }
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(ChatColor.RED + "Coordinate paste requires an in-game player so the target world is known.");
+            return;
+        }
+        double x = parseBoundedDecimal(args[2], "x", -30_000_000, 30_000_000);
+        double y = parseBoundedDecimal(args[3], "y", player.getWorld().getMinHeight(), player.getWorld().getMaxHeight());
+        double z = parseBoundedDecimal(args[4], "z", -30_000_000, 30_000_000);
+        boolean loop = args.length == 6 && args[5].equalsIgnoreCase("loop");
+        if (args.length == 6 && !loop) throw new IOException("The optional sixth argument must be 'loop'.");
+        pasteAtLocation(sender, args[1], loop, new Location(player.getWorld(), x, y, z));
     }
 
     private void pasteAtAnchor(CommandSender sender, String playableName, boolean loop) throws IOException {
@@ -951,9 +978,14 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             return;
         }
         if (anchor.getWorld() == null) throw new IOException("The saved placement anchor's world is no longer available; select the target block again.");
+        pasteAtLocation(sender, playableName, loop, anchor);
+    }
+
+    private void pasteAtLocation(CommandSender sender, String playableName, boolean loop, Location anchor) throws IOException {
+        if (anchor.getWorld() == null) throw new IOException("The placement anchor's world is no longer available.");
         String id = playbacks.start(playableName, anchor.getWorld(), loop, anchor);
         sender.sendMessage(ChatColor.GREEN + "Pasted " + ChatColor.AQUA + playableName + ChatColor.GREEN
-                + " at " + ChatColor.WHITE + anchor.getBlockX() + " " + anchor.getBlockY() + " " + anchor.getBlockZ()
+                + " at " + ChatColor.WHITE + String.format(Locale.ROOT, "%.2f %.2f %.2f", anchor.getX(), anchor.getY(), anchor.getZ())
                 + ChatColor.GREEN + ". Playback ID: " + ChatColor.YELLOW + id
                 + (loop ? ChatColor.GREEN + " (looping)" : "") + ChatColor.GRAY + ". The first actor is anchored here; the rest keep their saved offsets.");
     }
