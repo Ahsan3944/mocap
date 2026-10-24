@@ -120,12 +120,14 @@ public final class MocapSceneStore {
                     // An explicit modifier on this scene element overrides inherited context.
                     // Otherwise carry the parent override through every nested scene level.
                     String elementPlayerName = getString(el, "player_name", null);
-                    // Keep an inherited parent override above a child scene's own element name;
-                    // otherwise a nested child would shadow the parent's explicit override.
-                    // Direct element overrides still take precedence over an inherited value.
-                    String childPlayerName = childName.startsWith(".")
-                            ? firstNonBlank(playerName, elementPlayerName)
-                            : firstNonBlank(elementPlayerName, playerName);
+                    // A parent element override is inherited all the way down a nested tree.
+                    // Only an explicit override on a direct recording element replaces that inherited name.
+                    String childPlayerName;
+                    if (childName.startsWith(".")) {
+                        childPlayerName = firstNonBlank(elementPlayerName, playerName);
+                    } else {
+                        childPlayerName = firstNonBlank(elementPlayerName, playerName);
+                    }
                     String childSkin = skinProfileFrom(el.get("player_skin"));
                     // Explicit skin override on this element wins; otherwise inherit parent context.
                     if (childSkin == null) childSkin = skinProfile;
