@@ -248,11 +248,11 @@ public class RecordingPlayback extends Playback
 	{
 		lowLagMode = enabled;
 		// Minecraft 26.1 exposes noPhysics as an Entity field (the old setter no longer exists).
-		ctx.getMainEntity().setNoPhysics(enabled);
+		ctx.getMainEntity().noPhysics = enabled;
 		if (ctx.getMainEntity() instanceof FakePlayer fakePlayer) { fakePlayer.setStaticMode(enabled); }
 		if (ctx.getDummyPlayer() instanceof FakePlayer fakePlayer)
 		{
-			fakePlayer.setNoPhysics(enabled);
+			fakePlayer.noPhysics = enabled;
 			fakePlayer.setStaticMode(enabled);
 		}
 	}
@@ -338,11 +338,11 @@ public class RecordingPlayback extends Playback
 	@Override protected void loop()
 	{
 		ctx.resetMainEntityForLoop();
-		ctx.getMainEntity().setNoPhysics(lowLagMode);
+		ctx.getMainEntity().noPhysics = lowLagMode;
 		if (ctx.getMainEntity() instanceof FakePlayer fakePlayer) { fakePlayer.setStaticMode(lowLagMode); }
 		if (ctx.getDummyPlayer() instanceof FakePlayer fakePlayer)
 		{
-			fakePlayer.setNoPhysics(lowLagMode);
+			fakePlayer.noPhysics = lowLagMode;
 			fakePlayer.setStaticMode(lowLagMode);
 		}
 		applyEquipmentOverride();
