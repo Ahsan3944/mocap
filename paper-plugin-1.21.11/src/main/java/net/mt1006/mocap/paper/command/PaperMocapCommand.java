@@ -1306,7 +1306,10 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         }
         if (root.equals("paste")) {
             if (args.length == 2) return playableNameSuggestions(args[1]);
-            if (args.length == 3) return filter(List.of("loop"), args[2]);
+            if (args.length == 3) return filter(List.of("loop", "<x:-30000000..30000000>"), args[2]);
+            if (args.length == 4) return filterOrHint(List.of(), args[3], "<y:world-height>");
+            if (args.length == 5) return filterOrHint(List.of(), args[4], "<z:-30000000..30000000>");
+            if (args.length == 6) return filter(List.of("loop"), args[5]);
             return List.of();
         }
         if (root.equals("copy")) {
