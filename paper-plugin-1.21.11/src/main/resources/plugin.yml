@@ -8,7 +8,6 @@ commands:
   mocap:
     description: Manage Mocap Paper visual playbacks, scenes, and equipment presets.
     usage: /mocap help
-    aliases: [mocappaper]
 permissions:
   mocap.admin:
     description: Allows managing Mocap Paper playbacks and scene files.
