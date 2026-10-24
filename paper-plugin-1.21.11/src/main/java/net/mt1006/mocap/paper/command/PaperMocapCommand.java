@@ -1028,6 +1028,8 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         if (property.equals("player_skin")) {
             if (args.length == 6) return filter(List.of("default", "from_player", "from_file", "from_mineskin"), args[5]);
             if (args.length == 7 && args[5].equalsIgnoreCase("from_player")) return profileNameSuggestions(args[6]);
+            if (args.length == 7 && args[5].equalsIgnoreCase("from_file")) return filter(List.of("<skin-file-path>"), args[6]);
+            if (args.length == 7 && args[5].equalsIgnoreCase("from_mineskin")) return filter(List.of("<mineskin-token-or-id>"), args[6]);
         }
         if (property.equals("time")) {
             if (args.length == 6) return filter(List.of("start_delay", "wait_on_start", "wait_on_end", "wait_for_parent_end", "loop"), args[5]);
@@ -1056,7 +1058,8 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             return switch (action) {
                 case "play", "playhere" -> combineAndFilter(scenes.listRecordings(), scenes.listScenes(), args[1]);
                 case "stop", "freeze", "unfreeze", "end_freeze", "low_lag", "nametags" -> filter(playbackIds(), args[1]);
-                case "stopall", "stop_all", "list" -> List.of();
+                case "stop_all" -> filter(List.of("including_others", "excluding_others"), args[1]);
+                case "stopall", "list" -> List.of();
                 case "modifiers" -> filter(List.of("help", "list", "reset", "set", "add_to"), args[1]);
                 default -> List.of();
             };
