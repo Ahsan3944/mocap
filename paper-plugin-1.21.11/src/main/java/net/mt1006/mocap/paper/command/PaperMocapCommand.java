@@ -677,9 +677,12 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
                         : ChatColor.GOLD + "Subgroups in " + args[2] + ": " + String.join(", ", subgroups));
             }
             case "modify" -> {
+                if (!kind.equalsIgnoreCase("names")) {
+                    throw new IOException("Single-actor displayed-name changes belong under /mocap names modify; the skins library only manages skin profiles.");
+                }
                 if (args.length < 5) {
                     usage(sender, "/mocap names modify <scene-name> <element-index[-name]> <new-player-name>");
-                    sender.sendMessage(ChatColor.GRAY + "Use /mocap names list <group> [<subgroup>] [<page>|page:<page>] to inspect saved profile lists.");
+                    sender.sendMessage(ChatColor.GRAY + "Use /mocap names list <group> page:<page> or /mocap names list <group> <subgroup> <page> to inspect saved profile lists.");
                     return;
                 }
                 setSceneElementPlayerName(sender, args[2], args[3], args[4]);
@@ -818,15 +821,20 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.WHITE + "/mocap " + kind + " remove <group> <subgroup> <entry-id-or-exact-name>");
         sender.sendMessage(ChatColor.WHITE + "/mocap " + kind + " delete <group> <subgroup>");
         sender.sendMessage(ChatColor.WHITE + "/mocap " + kind + " info <group> <subgroup> <entry-id>");
+        if (kind.equalsIgnoreCase("names")) sender.sendMessage(ChatColor.WHITE + "/mocap names modify <scene> <element-index[-name]> <new-player-name>");
         sender.sendMessage(ChatColor.GRAY + "Group = a broad collection/category (for example, season1). Subgroup = a named list inside it (for example, heroes or villains).");
-        sender.sendMessage(ChatColor.GRAY + "Names and skins are separate libraries because one assigns display names and the other selects a profile skin. Up to 3,000 unique names per subgroup.");
+        sender.sendMessage(ChatColor.GRAY + "Names and skins are separate libraries because display-name changes and skin-profile selection are different operations. Up to 3,000 unique names per subgroup.");
         sender.sendMessage(ChatColor.GRAY + "For thousands of names, import UTF-8 .txt files from plugins/MocapPaper/profile-libraries/imports/ (512 KiB max).");
         sender.sendMessage(ChatColor.GRAY + "IDs remain stable when other entries are removed. Names are checked as official 1–16-character profile names.");
         sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     }
 
     private List<String> profileLibrarySuggestions(String[] args, String kind) {
-        if (args.length == 2) return filter(List.of("help", "groups", "subgroups", "list", "save", "add", "import", "import-add", "remove", "delete", "info", "modify"), args[1]);
+        if (args.length == 2) {
+            List<String> actions = new ArrayList<>(List.of("help", "groups", "subgroups", "list", "save", "add", "import", "import-add", "remove", "delete", "info"));
+            if (kind.equalsIgnoreCase("names")) actions.add("modify");
+            return filter(actions, args[1]);
+        }
         String action = args[1].toLowerCase(Locale.ROOT);
         if (action.equals("modify")) {
             if (args.length == 3) return sceneNameSuggestions(args[2]);
