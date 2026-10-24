@@ -472,7 +472,9 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         } else {
             sender.sendMessage(ChatColor.WHITE + "/mocap playback start <recording|.scene> [loop]");
             sender.sendMessage(ChatColor.WHITE + "/mocap playback <list|stop <playback-id>|stopall|freeze <playback-id>|unfreeze <playback-id>|end-freeze <playback-id>>");
-            sender.sendMessage(ChatColor.WHITE + "/mocap playback <low-lag <playback-id> <on|off>|nametags <playback-id> <hide|show>>");
+            sender.sendMessage(ChatColor.WHITE + "/mocap playback low-lag <playback-id> <on|off>");
+            sender.sendMessage(ChatColor.WHITE + "/mocap playback nametags <playback-id> <hide|show>");
+            sender.sendMessage(ChatColor.GRAY + "  Shortcut: /mocap playback nametags <hide|show> <playback-id>");
         }
         sender.sendMessage(ChatColor.YELLOW + "ID GUIDE");
         sender.sendMessage(ChatColor.GRAY + "The number offered after stop/freeze/nametags is the active playback ID—not a player name or actor index.");
