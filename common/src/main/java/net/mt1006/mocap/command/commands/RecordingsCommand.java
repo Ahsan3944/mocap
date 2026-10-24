@@ -1,0 +1,80 @@
+package net.mt1006.mocap.command.commands;
+
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
+import net.mt1006.mocap.api.v1.io.CommandInfo;
+import net.mt1006.mocap.api.v1.io.CommandOutput;
+import net.mt1006.mocap.command.CommandSuggestions;
+import net.mt1006.mocap.command.CommandUtils;
+import net.mt1006.mocap.mocap.files.RecordingFiles;
+import net.mt1006.mocap.mocap.playing.playable.RecordingFile;
+import net.mt1006.mocap.utils.Utils;
+
+import java.util.List;
+
+public class RecordingsCommand
+{
+	public static LiteralArgumentBuilder<CommandSourceStack> getArgumentBuilder()
+	{
+		LiteralArgumentBuilder<CommandSourceStack> commandBuilder = Commands.literal("recordings");
+
+		commandBuilder.then(Commands.literal("copy").then(CommandUtils.withInputAndStringArgument(RecordingsCommand::copy, CommandSuggestions::recording, "src_name", "dest_name")));
+		commandBuilder.then(Commands.literal("rename").then(CommandUtils.withInputAndStringArgument(RecordingsCommand::rename, CommandSuggestions::recording, "old_name", "new_name")));
+		commandBuilder.then(Commands.literal("remove").then(CommandUtils.withInputArgument(RecordingsCommand::remove, CommandSuggestions::recording, "name")));
+		commandBuilder.then(Commands.literal("info").then(CommandUtils.withInputArgument(RecordingsCommand::info, CommandSuggestions::recording, "name")));
+		commandBuilder.then(Commands.literal("list").executes(CommandUtils.command(RecordingsCommand::list)));
+
+		return commandBuilder;
+	}
+
+	public static boolean copy(CommandOutput out, String srcName, String destName)
+	{
+		RecordingFile srcFile = RecordingFile.get(out, srcName);
+		RecordingFile destFile = RecordingFile.get(out, destName);
+		if (srcFile == null || destFile == null) { return false; }
+
+		return srcFile.copy(out, destFile) != null;
+	}
+
+	public static boolean rename(CommandOutput out, String srcName, String destName)
+	{
+		RecordingFile srcFile = RecordingFile.get(out, srcName);
+		RecordingFile destFile = RecordingFile.get(out, destName);
+		if (srcFile == null || destFile == null) { return false; }
+
+		return srcFile.rename(out, destFile) != null;
+	}
+
+	public static boolean remove(CommandOutput out, String name)
+	{
+		RecordingFile file = RecordingFile.get(out, name);
+		return file != null && file.remove(out);
+	}
+
+	public static boolean info(CommandInfo info, String name)
+	{
+		return RecordingFiles.info(info, RecordingFile.get(info, name));
+	}
+
+	public static boolean list(CommandOutput out)
+	{
+		StringBuilder recordingsListStr = new StringBuilder();
+		List<String> recordingsList = RecordingFiles.list();
+
+		if (recordingsList == null)
+		{
+			recordingsListStr.append(" ").append(Utils.stringFromComponent("list.error"));
+		}
+		else if (!recordingsList.isEmpty())
+		{
+			recordingsList.forEach((name) -> recordingsListStr.append(" ").append(name));
+		}
+		else
+		{
+			recordingsListStr.append(" ").append(Utils.stringFromComponent("list.empty"));
+		}
+
+		return out.sendSuccess("recordings.list", new String(recordingsListStr));
+	}
+}

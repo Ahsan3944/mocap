@@ -1,0 +1,234 @@
+-It's now possible to record multiple recordings at the same time.
+-It's now possible to start playback of currently recorded recordings.
+-It's now possible to set playback modifiers for "/mocap playback start" command.
+-Renamed "/mocap playing" to "/mocap playback".
+-Added command to discard recordings - "/mocap recording discard".
+-Added command to set playback modifiers - "/mocap playback modifiers".
+-Added command to clear server and clients mocap cache - "/mocap misc clear_cache".
+-Added command to refresh suggestions for files - "/mocap misc refresh_suggestions".
+-Added command to list API extensions - "/mocap misc extensions".
+-Added support for custom NBT data with "player_as_entity" modifier.
+-Added player chat messages recording and associated with it settings: "chat_recording" (false by default) and "chat_playback" (true by default).
+-Added "transformations" playback modifier group and moved "offset" into it.
+-Added "transformations/scale" playback modifier (thanks to netcore10 for suggestion).
+-Added "transformations/mirror" playback modifier (thanks to Sky for suggestion).
+-Added "transformations/rotation" playback modifier.
+-Added "time" playback modifier group and moved "startDelay" into it as "wait_on_start" (thanks to damiendier for suggesion).
+-Added "time/start_delay" playback modifier (different from previous "startDelay" modifier).
+-Added "time/wait_on_end" playback modifier.
+-Added "time/wait_for_parent_end" playback modifier (true by default).
+-Added "time/loop" playback modifier (thanks to vini14zin for suggestion).
+-Added "entity_filter" playback modifier.
+-Added pattern matching with "*" for "scenes add_to" playable argument.
+-Added ability to hurt player and other entities in the playback and setting which controls it - "invulnerable_playback" (true by default).
+-Added setting "allow_ghosts" which enables usage of ghost players when using a "player_as_entity" modifier (true by default).
+-Added setting "pretty_scene_files" which makes scene JSON files look pretty (true by default).
+-Added setting "start_as_recorded" which makes playback of currently recorded player start as this player (false by default) (thanks to damiendier for suggestions).
+-Added setting "block_allow_scaled" which allows playback of scaled block actions (false by default).
+-Added setting "start_instantly" to start recording instantly instead of waiting for movement or second command (false by default) (thanks to Antimality for suggestion).
+-Added setting "assign_profile" to assign recorded player names, UUIDs and skins to a recording (no by default).
+-Added setting "show_tips" to enable/disable command tips (true by default).
+-Settings are now divided into 3 categories - recording, playback and advanced.
+-Improved tracking of dimension changes (thanks to damiendier for reporting).
+-Added setting "on_change_dimension" which determines what will happen when recorded player changes dimension (end_recording by default).
+-Added setting "assign_dimension" to assign dimension to a recording (true by default).
+-Added setting "dimension_source" to specify dimension in which dimension playback will start (assigned_or_current by default).
+-Added setting "quick_discard" to enable or disable quick discard by executing "stop" two times (true by default).
+-Added setting "required_extensions" to change how lack of recording extensions is handled (let_extension_decide by default).
+-Added setting "nbt_recording_mode" to specify how NBT data of non-player entities should be recorded (filtered by default).
+-Added setting "max_float_pos_value" to specify distance from recording start at which recording should switch to double precision floating point numbers (1024 by default).
+-Added setting "use_authlib_services" to replace new, custom implementation of mojang API requests with authlib implementation (false by default).
+-Added setting "player_name_handling" to change how casing of player names and their profiles are handled (ignore_casing by default).
+-Added setting "hit_range" to allow player in playback hit other entities and specify how far they can hit (0 by default).
+-Merged "/mocap scenes list_elements" into "/mocap scenes list" and "/mocap scenes element_info" into "/mocap scenes info".
+-Split "player_info" modifier into "player_name" and "player_skin".
+-Removed position offset arguments from "/mocap scenes add_to".
+-Replaced command "/mocap recording state" with "/mocap recording list".
+-Replaced settings "trackVehicleEntities", "trackItemEntities" and "trackOtherEntities" with "track_entities".
+-Replaced settings "playVehicleEntities", "playItemEntities" and "playOtherEntities" with "play_entities".
+-Replaced "trackPlayedEntities" setting with "prevent_tracking_played_entities" (true by default) which better represents what it's actually doing.
+-Replaced "recordPlayerDeath" setting with "on_death" which defines recording behavior on player death and unlike old setting actually works (end_recording by default).
+-Replaced "recordingSync" setting with "/mocap misc sync" command.
+-Renamed settings: "playing_speed" to "playback_speed", "play_block_actions" to "block_actions_playback", "set_block_states" to "block_initialization".
+-Changed "entities_after_playback" setting type from integer to enum.
+-Changed settings, command names and command arguments naming convention from lower camel case to snake case.
+-Command "/mocap playback start" can now accept entity selectors to more than one player.
+-Added "for_all_players" optional argument to "/mocap playback stop_all".
+-Added "instant_save" optional argument to "/mocap recording start" to instantly save recording after stopping it (thanks to Antimality for suggesiton).
+-Renamed "from_..." to "skin_from_..." simple modifiers in "playback start" and "scene add_to" commands.
+-Added API.
+-Added ability to create skin lists (thanks to Laynce for suggestion).
+-It's now possible to remove assigned skin from playback (including scene element) modifiers.
+-It's now possible to add player_as_entity modifier using simple modifiers (thanks to Narfu for suggestion).
+-Item types and block states are now stored using string IDs (instead of numeric IDs), providing better compatibility between different Minecraft versions and modpacks.
+-Scene format is now JSON-based.
+-Recording now continues for short period after player death.
+-Added suggestions for "/mocap scenes modify" "to_modify" argument.
+-Added suggestions for "/mocap playback stop" command.
+-Added suggestions for skins from files.
+-Suggestions for recordings/scenes names no longer require mod to be installed on a client.
+-For scene name suggestions where dot can be omitted, user input without a dot is now properly parsed by suggestion provider.
+-Playback IDs are now unique throughout server run.
+-Number of operations in recording information now counts tick operations.
+-Added limit to custom skin file size and to cumulative custom skin file and texture sizes.
+-Improvements to recording format.
+-Improvements to recording information command output.
+-Improvements to error messages.
+-Improvements to loading profiles.
+-Improvements to loading skins from mineskin.org
+-General command output improvements.
+-Improved output of trying to change setting value with "/mocap settings" command, when value remained unchanged.
+-Improved saving of automatically stopped recordings - when quick discard is enabled, stop command now needs to be used two times in order to prevent accidental discards.
+-Renamed "settings.mcmocap_conf" to "settings.txt".
+-Removed argument value limits that existed for some settings in "/mocap settings" command.
+-Output of "/mocap recordings list" and "/mocap scenes list" is now alphabetically sorted.
+-Changed some "errors" to "failures" and some "failures" to "errors" - it should be now easier to distinguish user errors (failures) from mod errors.
+-Mod version number now includes target Minecraft version.
+-Fixed recording being in a glitched state after restarting the integrated server (leaving and rejoining world in a singleplayer mode).
+-Fixed issues with loading mocap_files directory when using Flashback (thanks to hablethedev for reporting).
+-Fixed some interactions with blocks (e.g. placing candles) not working on version 1.20.5 and later.
+-Fixed setting values not being applied or using values from previous world when obtained without first starting playback or interacting with "/mocap settings" command.
+-Fixed fake players not being fully removed from the client when playback ended with death.
+-Fixed fake players in "player as entity" mode not being able to interact with blocks (thanks to awesome_nobel46 for reporting).
+-Fixed vehicles not appearing in the playback after disabling "playItemEntities", "playOtherEntities" and "playBlockActions", despite "playVehicleEntities" being enabled.
+-Fixed directories with a proper name showing up on a list of recordings or scenes.
+-Fixed server crashing when trying to start playback with player name longer than 16 characters (thanks to SPY for reporting).
+-Fixed fake players with empty name having tiny gray bar above their head.
+-Fixed blocks not initializing for playback of currently recorded recording (thanks to Robobuilder for reporting).
+-Fixed "recordPlayerDeath" setting not working (by removing it) (thanks to damiendier for reporting).
+-Fixed recording not stopping after recorded player leaves the server (thanks to damiendier for reporting).
+-Fixed playback of a spectator being only invisible instead of actually being a spectator (thanks to damiendier for reporting).
+-Fixed closing chest not being recorded.
+-Fixed 1.21+ special effect particles not being visible.
+-Fixed saddles not working on newer Minecraft versions.
+-Fixed baby entities being recorded as adults.
+-Fixed damage going through shields.
+-Fixed damage spam issue on Fabric.
+-Fixed various issues caused by Java localization.
+-Minor spelling improvements.
+-Minor improvements to error detection.
+-Added Chinese [traditional] translation (thanks to dirtTW).
+-Added French translation (thanks to LOUDO56).
+
+===Version 1.3.9===
+-Fixed playback stopping after a non-player entity places a block on version 1.19.2 and older (thanks to awesome_nobel46 for reporting).
+
+===Version 1.3.8===
+-Fixed fake players receiving damage only one time during playback.
+
+===Version 1.3.7===
+-Fixed fake players not being removed from the client level after being outside of render distance during the entirety of playback.
+-Name "Mocap" is now used instead of "MocapMod" in "/mocap info" and "/mocap help" command output.
+-Version information is no longer sent to logs during startup.
+
+===Version 1.3.6===
+-Fixed Forge 1.20.6 version not working.
+
+===Version 1.3.5===
+-Updated recording format.
+
+===Version 1.3.4===
+-Fixed an issue causing recording corruption when recording item or entity with NBT data containing non-ASCII characters (thanks to INV-PLA for reporting).
+-Fixed missing translation key for copying and renaming a scene.
+
+===Version 1.3.3===
+-Fixed a compatibility issue with JourneyMap (issue reported by seriousfreezing).
+
+===Version 1.3.2===
+-Placing fire with flint and steel is now recorded on Fabric (issue reported by Libreh).
+-Fixed issue with skin top layers when playing multiple players on version 1.19.2 and older (reported by fogartyfox_gamer).
+
+===Version 1.3.1===
+-Added settings "fluentMovements" controlling distance to played entity for player to receive additional packets for more fluent movements (32 by default).
+-Fixed entity data synchronization issues.
+-Fixed packets being sent to players far away from played entities.
+-Fixed issue with horse armor not being set properly (reported by M7MEDpro).
+-Fixed issues with players position being offset during playback on versions 1.19.4 and 1.20.1.
+-Fixed horse variant resetting to default or chest disappearing on horse-like entities when their mouth "is open" on versions 1.19.2 and lower.
+-Fixed llama variants not being recorded on versions 1.19.2 and lower, on Fabric.
+-Fixed setting "preventSavingEntities" not preventing saving entities on version 1.16.5.
+-Fixes for loading skin from a file.
+
+===Version 1.3===
+-Changes to command structure - split "/mocap recording" into "recording" and "recordings".
+-Added commands to rename, copy and get information about recordings and scenes.
+-Added commands to modify and get information about scene elements.
+-Skins can now be set from another player (without changing fake player name) or from a local file (proposed by Live_CK).
+-Player model can now be swapped with the other entity by editing scene element (proposed by cucurbito).
+-Entities other than player are now recorded.
+-Player riding other entity is now properly recorded (mentioned by Snownee, M7MEDpro, Afirmaran1010, erixon_07).
+-Hurting player or other entities is now recorded.
+-Player death is now recorded.
+-Placing double blocks (like beds or doors) is now properly recorded.
+-Block destroying progress is now recorded.
+-Arrow and bee stinger count are now recorded.
+-Potion effects are now recorded.
+-Sleeping is now properly recorded.
+-Added option to make fake player not collide with other entities (proposed by Snownee).
+-Added suggestions for recording and scene names in commands.
+-Added setting "trackVehicleEntities" which enables tracking vehicle entities (enabled by default).
+-Added setting "trackItemEntities" which enables tracking item (enabled by default).
+-Added setting "trackOtherEntities" which enables tracking entities other than vehicles and items (disabled by default).
+-Added setting "trackPlayedEntities" which enables tracking entities that are currently played (disabled by default).
+-Added settings "playVehicleEntities", "playItemEntities" and "playOtherEntities" which are counterparts of "track..." settings but for playback (all are enabled by default).
+-Added setting "entityTrackingDistance" which controls entity tracking distance (128 by default, the number represents the distance from the player in blocks, 0 disables tracking and -1 disables limit).
+-Added setting "entitiesAfterPlayback" which determines what will happen with entities after playback (1 by default, -1 - will be released as a normal entity, 0 - will be left untouched, 1 - will be removed, 2 - will be killed with animation).
+-Added setting "preventSavingEntities" which prevents game from saving played entities in case of for example leaving game (enabled by default).
+-Added setting "dropFromBlocks" which enables drop from blocks (disabled by default - recommended with "playItemEntities" disabled to prevent duplicates).
+-Added setting "useCreativeGameMode" which sets fake players game mode to creative therefore making monsters ignore then (disabled by default).
+-Added setting "recordPlayerDeath" (enabled by default).
+-Fixed message about recording start being sent to recorded player instead of player who started recording.
+-Updated help message.
+-Stack trace of some non-critical, unknown exceptions is now logged.
+
+===Version 1.2.1===
+-Fixed a compatibility issue causing skin top layer not being visible (thanks KlashRaick, JLUsr and efi1212 for reporting).
+-Fixed fake players not being removed from the server level causing memory leaks, performance issues, strange mob behaviour, problems with placing blocks, blocks staying activated and probably many other bad things (thanks KlashRaick for reporting).
+-When mod is not installed on a client-side, the server now sends text with English translation instead of translation keys.
+
+===Version 1.2===
+-Placing, breaking and interacting with blocks is now recorded.
+-Skins can now be set from the mineskin.org URL.
+-Added setting "playBlockActions" which by default is enabled and controls whether placing, breaking and block interactions are played back.
+-Added setting "setBlockStates" which by default is enabled and causes block states to be reset on playback start.
+-Added setting "allowMineskinRequests" which by default is enabled and allows HTTPS requests to mineskin.org to load skins.
+-Added optional argument "mineskinURL" to "/mocap scenes addTo" that can be used to set skin from the mineskin.org URL.
+-Added optional arguments "playerName" and "mineskinURL" to "/mocap playing start".
+-Removed "startPos" optional argument from "/mocap playing start" (it didn't work anyway).
+-Item enchantments are now recorded.
+-Using off-hand item or trident with riptide enchantment is now properly recorded.
+-Fake players can now interact with pressure plates and tripwires.
+-Fixed multiple issues with Minecraft and mod compatibility caused by UUID duplicates.
+-Fixed files being loaded and saved to the same directory after switching saves on the client.
+-Fixed server freezing after setting "playingSpeed" to extremely high value.
+-Fixed playback freezing after setting "playingSpeed" to zero or value close to zero and then changing it back to normal.
+-Fixed command execution ending with unexpected error when trying to list recordings or scenes when one of the files in the directory starts with a dot.
+-Added Chinese [simplified] translation (thanks to Kasualix).
+
+===Version 1.1.1===
+-Fixed skin top layers not showing properly on Fabric 1.16.5 (thanks ZaCronium for reporting).
+
+===Version 1.1===
+-Added "/mocap settings" command.
+-Added setting "playingSpeed" that changes playing speed.
+-Added setting "recordingSync" which when enabled, syncs playing start with recording start. It can help with creating complex scenes.
+-When failed to play scene, error message now also contains path to resource that caused error.
+-Small improvements to chat messages.
+
+===Source audit update (2026-10-24; not a verified release)===
+- Added playback freeze, unfreeze, and end-freeze source commands.
+- Hardened scene loading/cleanup and scene file replacement.
+- Added scene formation builder with limits.
+- Added random unique player-name and skin-profile assignment for direct recording elements.
+- Build/runtime verification pending; see AUDIT_FIXES_REPORT.md and NEW_FEATURES_GUIDE.md.
+
+=== Source update — 2026-10-24 (not a verified release) ===
+- Persisted randomized unique player names and skin-profile assignments in scene files; added individual name edit guidance.
+- Added centered scene formation builder and scene element safety limit (5,000 elements); optimized wildcard scene addition to save once.
+- Added runtime playback freeze/unfreeze and end-freeze controls; hardened playback scheduling and loop actor recovery after death/removal.
+- Added grouped armor/main-hand/offhand presets, apply-to-scene-element, apply-to-playback-tree, and per-actor random preset assignment.
+- Added batched name-tag hide/show synchronization for living playback actors.
+- Added collision-light playback mode (collision overhead only; no promise of unlimited actors).
+- Added packet length validation and UTF-8 byte-length correction.
+- Added combined `universalJar` Gradle task for Fabric + NeoForge metadata/entrypoints.
+- Build and runtime tests remain blocked in the current environment by unavailable Gradle/Maven DNS and missing Linux Java 25. No JAR is verified.

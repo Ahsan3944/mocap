@@ -1,0 +1,94 @@
+{
+  "mocap.recording.start.player_not_found": "未找到玩家！",
+  "mocap.recording.start.player_not_specified.with_tip": "未指定玩家！为命令添加玩家名或作为玩家执行",
+  "mocap.recording.start.player_not_specified.no_tip": "未指定玩家！",
+  "mocap.recording.start.waiting_for_action.self": "执行任何操作或再次使用\"/mocap recording start\"以开始录制……",
+  "mocap.recording.start.recording_started": "录制开始……",
+
+  "mocap.recording.stop.stopped": "录制停止——等待选择中……",
+  "mocap.recording.stop.stopped.stop_tip": "使用\"/mocap recording save <recording_name>\"来保存此段录像\n或者使用\"/mocap recording stop\"来舍弃此段录像。",
+  "mocap.recording.stop.stopped.discard_tip": "使用\"/mocap recording save <recording_name>\"来保存此段录像\n或者使用\"/mocap recording discard\"来舍弃此段录像。",
+
+  "mocap.recording.discard.discarded": "此段录像已被舍弃",
+
+  "mocap.recording.save.saved": "录像已成功保存",
+
+  "mocap.recording.resolve.server_not_recording": "服务器现在没有录制任何内容！",
+
+
+  "mocap.recordings.remove.failed": "无法移除录像！",
+  "mocap.recordings.remove.success": "录像已成功移除",
+
+  "mocap.recordings.list": "§l录像：§r%s",
+
+
+  "mocap.scenes.add.error": "§l错误：§r无法增加场景！",
+  "mocap.scenes.add.success": "场景已成功增加",
+
+  "mocap.scenes.remove.failed": "无法移除场景！",
+  "mocap.scenes.remove.success": "场景已成功移除",
+
+  "mocap.scenes.add_to.error": "§l错误：§r无法向场景中加入元素！",
+  "mocap.scenes.add_to.success": "成功向场景中加入元素",
+
+  "mocap.scenes.remove_from.error": "§l错误：§r无法将元素从场景中移除！",
+  "mocap.scenes.remove_from.success": "成功将元素从场景中移除",
+
+  "mocap.scenes.list_elements": "§l场景元素列表：§r",
+
+  "mocap.scenes.list": "§l场景：§r%s",
+
+  "mocap.scenes.failure.file_not_exists": "不存在以此为名的场景",
+  "mocap.scenes.failure.wrong_element_pos": "不存在给定编号的元素",
+  "mocap.scenes.failure.wrong_element_pos.tip": "使用\"/mocap scenes list <scene>\"来获取元素编号",
+
+
+  "mocap.playback.start.error": "§l错误：§r无法开启场景！",
+  "mocap.playback.start.error.loop": "场景或子场景包含自身！",
+  "mocap.playback.start.error.load": "无法加载所有资源！",
+  "mocap.playback.start.error.load.path": "资源路径：%s",
+  "mocap.playback.start.error.load_header": "§l错误：§r无法加载录像页头！",
+  "mocap.playback.start.success": "播放开始……",
+  "mocap.playback.start.success.modifiers": "播放开始... (with modifiers)",
+  "mocap.playback.start.success.sync": "播放开始... (with synchronization)",
+  "mocap.playback.start.success.modifiers.sync": "播放开始... (with modifiers and synchronization)",
+
+  "mocap.playback.stop.unable_to_find_playback.tip": "使用\"/mocap playback list\"来获取所有当前播放中场景的列表",
+  "mocap.playback.stop.success": "播放停止",
+
+  "mocap.playback.list": "§l当前播放：§r",
+
+
+  "mocap.settings.error": "§l错误：§r无法找到设置！",
+
+  "mocap.settings.list": "§l设置：§r",
+  "mocap.settings.list.info": "%s: %s",
+  "mocap.settings.list.info_def": "%s: %s §7§o[默认]§r",
+
+  "mocap.settings.info.name": "§l名称：§r %s",
+  "mocap.settings.info.about": "§l关于：§r %s",
+
+  "mocap.settings.info.about.playback_speed": "允许你更改播放录像或场景的速度",
+
+  "mocap.settings.info.current_value": "§l当前值：§r %s",
+  "mocap.settings.info.default_value": "§l默认值：§r %s",
+  "mocap.settings.info.string_value": "%s %s",
+
+  "mocap.settings.set.success.changed": "值已从 %s 变为 %s",
+  "mocap.settings.set.error": "§l错误：§r无法读取输入的值！",
+
+
+  "mocap.list.empty": "§7§o[空]§r",
+  "mocap.list.error": "§c§o[错误]§r",
+
+
+  "mocap.failure.improper_filename.character": "你只能使用小写字母、数字、下划线、短划线或点",
+  "mocap.failure.improper_filename.dot_first": "不能使用点作为第一个字符",
+  "mocap.failure.improper_player_name.too_long": "玩家名的最大长度为16",
+  "mocap.failure.improper_player_name.contains_spaces": "玩家名不能包含空格",
+
+  "mocap.error.failed_to_init_directories": "§l错误：§r无法初始化文件夹！",
+  "mocap.error.unable_to_get_argument": "§l错误：§r无法获取参数！",
+  "mocap.error.failed_to_load_scene": "§l错误：§r无法加载场景文件！",
+  "mocap.error.failed_to_load_scene.not_supported": "不支持的场景文件版本"
+}

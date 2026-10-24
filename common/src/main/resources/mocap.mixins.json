@@ -1,0 +1,30 @@
+{
+	"required": true,
+	"minVersion": "0.8",
+	"package": "net.mt1006.mocap.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"mixins":
+	[
+		"EntityMixin",
+		"LivingEntityMethodMixin",
+		"ServerLevelMixin",
+		"SlimeMixin",
+		"fields.AbstractArrowFields",
+		"fields.AbstractHorseFields",
+		"fields.AgeableModFields",
+		"fields.AvatarFields",
+		"fields.BoatFields",
+		"fields.EntityFields",
+		"fields.EntityIdFields",
+		"fields.HorseFields",
+		"fields.LevelFields",
+		"fields.LivingEntityFields",
+		"fields.LlamaFields"
+	],
+	"client":
+	[
+		"AbstractClientPlayerMixin",
+		"LivingEntityRendererMixin"
+	],
+	"injectors": { "defaultRequire": 1 }
+}

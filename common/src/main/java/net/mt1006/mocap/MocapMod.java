@@ -1,0 +1,59 @@
+package net.mt1006.mocap;
+
+import net.minecraft.server.MinecraftServer;
+import net.mt1006.mocap.api.v1.MocapAPI;
+import net.mt1006.mocap.mocap.actions.ActionType;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+
+public class MocapMod
+{
+	public static final String MOD_ID = "mocap";
+	public static final boolean EXPERIMENTAL = true; //TODO: change it to false
+	public static final boolean SHOW_EXPERIMENTAL_WARNING = false;
+
+	public static final byte RECORDING_FORMAT_VERSION = 5;
+	public static final byte RECORDING_FORMAT_EXP_SUBVERSION = 2;
+	public static final byte SCENE_FORMAT_VERSION = 4;
+	public static final int NETWORK_PACKETS_VERSION = 6;
+
+	public static final Logger LOGGER = LogManager.getLogger();
+	public static final List<Runnable> toRunOnInit = new ArrayList<>();
+	public static boolean initialized = false;
+	public static boolean initializedExceptApi = false;
+	public static boolean isDedicatedServer = false;
+	public static MocapModLoaderInterface loaderInterface = null;
+	public static @Nullable MinecraftServer server = null;
+
+	public static void init(boolean isDedicatedServer, MocapModLoaderInterface loaderInterface)
+	{
+		MocapMod.isDedicatedServer = isDedicatedServer;
+		MocapMod.loaderInterface = loaderInterface;
+
+		ActionType.initTypes();
+	}
+
+	public static void postInit()
+	{
+		initializedExceptApi = true;
+		toRunOnInit.forEach(Runnable::run);
+		toRunOnInit.clear();
+		initialized = true;
+	}
+
+	public static String getName()
+	{
+		return String.format(Locale.ROOT, "Mocap v%s", MocapAPI.Info.version());
+	}
+
+	public static String getFullName()
+	{
+		return String.format(Locale.ROOT, "Mocap v%s for Minecraft %s [%s]",
+				MocapAPI.Info.version(), MocapAPI.Info.forVersion(), MocapAPI.Info.forLoader());
+	}
+}
