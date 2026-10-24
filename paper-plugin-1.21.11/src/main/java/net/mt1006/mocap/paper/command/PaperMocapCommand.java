@@ -974,12 +974,12 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
                 if (anchor == null) {
                     throw new IOException("No placement anchor is selected. Run /mocap formation tool and right-click the target block first.");
                 }
-                int rows = parseBoundedInteger(args[4], "rows", 1, MocapSceneStore.MAX_FORMATION_ADDITIONS);
-                int columns = parseBoundedInteger(args[5], "columns", 1, MocapSceneStore.MAX_FORMATION_ADDITIONS);
+                int rows = parseBoundedInteger(args[4], "rows", 1, MocapSceneStore.MAX_FORMATION_GROUP_ACTORS);
+                int columns = parseBoundedInteger(args[5], "columns", 1, MocapSceneStore.MAX_FORMATION_GROUP_ACTORS);
                 long actorCount = (long) rows * columns;
-                if (actorCount > MocapSceneStore.MAX_FORMATION_ADDITIONS) {
+                if (actorCount > MocapSceneStore.MAX_FORMATION_GROUP_ACTORS) {
                     throw new IOException("Rows × columns is " + actorCount + "; maximum is "
-                            + MocapSceneStore.MAX_FORMATION_ADDITIONS + " actors. Reduce rows or columns.");
+                            + MocapSceneStore.MAX_FORMATION_GROUP_ACTORS + " playable actors per group. Reduce rows or columns.");
                 }
                 double columnGap = parseBoundedDecimal(args[6], "column-gap", 0.0, 128.0);
                 double rowGap = parseBoundedDecimal(args[7], "row-gap", 0.0, 128.0);
