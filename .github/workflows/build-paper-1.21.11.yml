@@ -68,11 +68,11 @@ jobs:
 
           This ZIP keeps incompatible Minecraft targets as separate, independently buildable source snapshots.
 
-          - Minecraft 26.1 Fabric + NeoForge: `minecraft-26.1/` (branch `main`, commit `$main_sha`)
-          - Minecraft 1.21.11 Fabric: `minecraft-1.21.11-fabric/` (branch `fabric-1.21.11`, commit `$fabric_sha`)
-          - Paper 1.21.11 plugin: `minecraft-1.21.11-paper/paper-plugin-1.21.11/` (branch `paper-1.21.11`, commit `$paper_sha`)
+          - Minecraft 26.1 Fabric + NeoForge: minecraft-26.1/ (branch main, commit $main_sha)
+          - Minecraft 1.21.11 Fabric: minecraft-1.21.11-fabric/ (branch fabric-1.21.11, commit $fabric_sha)
+          - Paper 1.21.11 plugin: minecraft-1.21.11-paper/paper-plugin-1.21.11/ (branch paper-1.21.11, commit $paper_sha)
 
-          Do not combine these roots into one universal JAR. Each target has its own dependencies, Java toolchain, and build workflow. The older separate `Ahsan3944/mocap-paper` prototype remains preserved in its own repository and is not the selected release implementation.
+          Do not combine these roots into one universal JAR. Each target has its own dependencies, Java toolchain, and build workflow. The older separate Ahsan3944/mocap-paper prototype remains preserved in its own repository and is not the selected release implementation.
           EOF
           source_zip="$GITHUB_WORKSPACE/Mocap-Complete-Source-${paper_sha:0:7}.zip"
           (cd "$RUNNER_TEMP" && zip -qr "$source_zip" mocap-complete-source)
