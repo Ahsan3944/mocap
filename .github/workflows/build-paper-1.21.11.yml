@@ -1,0 +1,70 @@
+name: Build Mocap Paper 1.21.11
+
+on:
+  push:
+    branches: [paper-1.21.11]
+    paths:
+      - "paper-plugin-1.21.11/**"
+      - ".github/workflows/build-paper-1.21.11.yml"
+      - "VERSION_BRANCHES.md"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Test, build, validate, and publish Paper plugin
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out Paper version branch
+        uses: actions/checkout@v4
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Run parser tests and build Paper plugin
+        run: ./gradlew -p paper-plugin-1.21.11 --no-daemon --stacktrace clean test build
+      - name: Validate installable Paper plugin JAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          jar_file="$(find paper-plugin-1.21.11/build/libs -maxdepth 1 -type f -name 'Mocap-PAPER-1.21.11-*.jar' ! -name '*-sources.jar' -size +10k -print -quit)"
+          test -n "$jar_file"
+          unzip -t "$jar_file" >/dev/null
+          unzip -l "$jar_file" | grep -q 'plugin.yml'
+          unzip -l "$jar_file" | grep -q 'net/mt1006/mocap/paper/MocapPaperPlugin.class'
+          unzip -l "$jar_file" | grep -q 'net/mt1006/mocap/paper/playback/MocapRecordingParser.class'
+          python3 - "$jar_file" <<'PY'
+          import sys, zipfile
+          with zipfile.ZipFile(sys.argv[1]) as archive:
+              plugin = archive.read("plugin.yml").decode("utf-8")
+          assert "main: net.mt1006.mocap.paper.MocapPaperPlugin" in plugin
+          assert "api-version: '1.21.9'" in plugin
+          assert "MocapPaper" in plugin
+          print("Validated Paper plugin descriptor and entrypoints:", sys.argv[1])
+          PY
+      - name: Upload validated Paper JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: mocap-paper-1.21.11-uop1
+          if-no-files-found: error
+          retention-days: 90
+          path: |
+            paper-plugin-1.21.11/build/libs/Mocap-PAPER-1.21.11-*.jar
+            !paper-plugin-1.21.11/build/libs/*-sources.jar
+      - name: Publish Paper plugin as a GitHub prerelease
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          jar_file="$(find paper-plugin-1.21.11/build/libs -maxdepth 1 -type f -name 'Mocap-PAPER-1.21.11-*.jar' ! -name '*-sources.jar' -size +10k -print -quit)"
+          test -n "$jar_file"
+          source_sha="$(git rev-parse HEAD)"
+          tag="mocap-paper-1.21.11-uop1-${source_sha:0:7}"
+          gh release create "$tag" --target "$source_sha" --title "Mocap Paper 1.21.11 — UltraOP port" --notes "Built on Java 21. Unit tests, JAR integrity, plugin descriptor, and entrypoint checks passed. This is a Paper Mannequin visual playback port; see paper-plugin-1.21.11/PORT_REPORT.md for action parity limits and required live tests." --prerelease "$jar_file"

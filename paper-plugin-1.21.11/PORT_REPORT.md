@@ -1,0 +1,11 @@
+# Paper 1.21.11 port report
+
+Target: Paper 1.21.11, Java 21, paper-api 1.21.11-R0.1-SNAPSHOT. This is a plugin JAR, not a Fabric/NeoForge mod.
+
+Implemented: defensive reader for recording formats v1-v5 with size/action/tick/coordinate limits; scene JSON/nested-scene loading, recursion guards, safe paths, atomic save, copy without overwriting, grid formation, persisted random names/profile names, individual name change for a direct recording element; Mannequin movement/rotation/supported poses/basic item IDs/main-hand orientation/profile-name skins; loop/freeze/unfreeze/end-freeze, stop/stop-all, name-tag show/hide, immovability toggle, grouped equipment presets and random preset application.
+
+JUnit tests cover legacy/current headers, movement delta decoding, truncation, invalid versions, empty data and unknown actions. Actions workflow builds on Java 21, tests, validates JAR integrity/descriptor/entrypoint and creates a release only on success.
+
+Limits: Paper's public API cannot reproduce fake ServerPlayer behavior, packet-level animation, arbitrary custom skin image injection or all recorded actions. Block edits/mining, chat, entity add/remove/mount, combat/swing, and custom extension actions are consumed but not executed. Item components/NBT, custom PNG/MineSkin skins, embedded signed textures, mirror/custom scene centers and player-as-entity transforms are not fully ported. Profile lookup depends on Mojang services. Low-lag is an immovability flag, not a proven optimization.
+
+Live acceptance tests are still required: install and startup; known recordings and scenes; name/skin persistence; nested/malformed scenes; 10/30/60-second loops for 30 minutes; stop/freeze/end-freeze; equipment presets after restart; profile lookup failures; benchmark at 50/100/250/500 actors. A 500-actor cap is not a smoothness guarantee.

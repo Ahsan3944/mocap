@@ -1,0 +1,17 @@
+plugins { id 'java' }
+group = 'net.mt1006.mocap.paper'
+version = '1.0.0-uop1'
+repositories {
+    mavenCentral()
+    maven { name = 'papermc'; url = uri('https://repo.papermc.io/repository/maven-public/') }
+}
+dependencies {
+    compileOnly 'io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT'
+    compileOnly 'com.google.code.gson:gson:2.11.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.4'
+}
+java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
+tasks.withType(JavaCompile).configureEach { options.release = 21; options.encoding = 'UTF-8' }
+tasks.test { useJUnitPlatform() }
+tasks.jar { archiveFileName = "Mocap-PAPER-1.21.11-" + project.version + ".jar" }

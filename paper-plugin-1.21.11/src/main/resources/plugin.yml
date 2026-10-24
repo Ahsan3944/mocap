@@ -1,0 +1,16 @@
+name: MocapPaper
+version: 1.0.0-uop1
+main: net.mt1006.mocap.paper.MocapPaperPlugin
+api-version: '1.21.9'
+authors: [UltraOP]
+description: Visual playback port for Mocap recording and scene files on Paper 1.21.11.
+commands:
+  mocap:
+    description: Manage Mocap Paper visual playbacks, scenes, and equipment presets.
+    usage: /mocap help
+    aliases: [mocappaper]
+    permission: mocap.admin
+permissions:
+  mocap.admin:
+    description: Allows managing Mocap Paper playbacks and scene files.
+    default: op
