@@ -676,71 +676,179 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         if (args.length == 1) return rootSuggestions(args[0]);
 
         if (root.equals("recording")) {
-            if (args.length == 2) return filter(List.of("help", "start", "stop", "save", "discard", "list"), args[1]);
-            if (args.length == 3 && args[1].equalsIgnoreCase("start")) return playerAndSelectorSuggestions(args[2]);
-            if (args.length == 4 && args[1].equalsIgnoreCase("start")) return filter(List.of("my_recording", "session_1"), args[3]);
-            if (args.length == 3 && List.of("stop", "discard", "list").contains(args[1].toLowerCase(Locale.ROOT))) return filter(recordings.availableIds(), args[2]);
-            if (args.length == 3 && args[1].equalsIgnoreCase("save")) return filter(List.of("my_recording", "session_1"), args[2]);
-            if (args.length == 4 && args[1].equalsIgnoreCase("save")) return filter(recordings.availableIds(), args[3]);
+            if (args.length == 2) return filter(List.of("help", "start", "stop", "discard", "save", "list"), args[1]);
+            String action = args[1].toLowerCase(Locale.ROOT);
+            if (args.length == 3 && action.equals("start")) return playerAndSelectorSuggestions(args[2]);
+            if (args.length == 4 && action.equals("start")) return filter(List.of("my_recording", "session_1"), args[3]);
+            if (args.length == 3 && List.of("stop", "discard", "list").contains(action)) return filter(recordings.availableIds(), args[2]);
+            if (args.length == 3 && action.equals("save")) return filter(List.of("my_recording", "session_1"), args[2]);
+            if (args.length == 4 && action.equals("save")) return filter(recordings.availableIds(), args[3]);
             return List.of();
         }
+
         if (root.equals("recordings")) {
-            if (args.length == 2) return filter(List.of("help", "list", "info"), args[1]);
-            if (args.length == 3 && args[1].equalsIgnoreCase("info")) return filter(scenes.listRecordings(), args[2]);
-            return List.of();
-        }
-        if (root.equals("scene") || root.equals("scenes")) {
-            if (args.length == 2) return filter(List.of("help", "list", "info", "copy", "customize", "formation", "play"), args[1]);
+            if (args.length == 2) return filter(List.of("help", "list", "info", "copy", "rename", "remove"), args[1]);
             String action = args[1].toLowerCase(Locale.ROOT);
-            if (args.length == 3 && List.of("info", "play").contains(action)) return filter(scenes.listScenes(), args[2]);
-            if (args.length == 3 && action.equals("copy")) return filter(scenes.listScenes(), args[2]);
-            if (args.length == 4 && action.equals("copy")) return filter(scenes.listScenes(), args[3]);
-            if (args.length == 3 && action.equals("customize")) return filter(List.of("names", "skins", "name", "equipment"), args[2]);
-            if (action.equals("customize")) return customizeSuggestions(args, 2);
-            if (args.length == 3 && action.equals("formation")) return filter(List.of("add"), args[2]);
-            if (args.length == 4 && action.equals("formation") && args[2].equalsIgnoreCase("add")) return filter(scenes.listScenes(), args[3]);
-            if (args.length == 5 && action.equals("formation") && args[2].equalsIgnoreCase("add")) return filter(scenes.listRecordings(), args[4]);
-            if (args.length == 6 && action.equals("formation") && args[2].equalsIgnoreCase("add")) return filter(List.of("<rows>"), args[5]);
-            if (args.length == 7 && action.equals("formation") && args[2].equalsIgnoreCase("add")) return filter(List.of("<columns>"), args[6]);
-            if (args.length == 8 && action.equals("formation") && args[2].equalsIgnoreCase("add")) return filter(List.of("<spacing>"), args[7]);
+            if (args.length == 3 && List.of("info", "copy", "rename", "remove", "delete").contains(action)) return filter(scenes.listRecordings(), args[2]);
+            if (args.length == 4 && List.of("copy", "rename").contains(action)) return filter(List.of("new_recording", "recording_copy"), args[3]);
             return List.of();
         }
-        if (root.equals("playback")) {
-            if (args.length == 2) return filter(List.of("help", "start", "list", "stop", "stopall", "freeze", "unfreeze", "end-freeze", "low-lag", "nametags"), args[1]);
-            String action = args[1].toLowerCase(Locale.ROOT);
-            if (args.length == 3 && action.equals("start")) return combineAndFilter(scenes.listRecordings(), scenes.listScenes(), args[2]);
-            if (args.length == 3 && List.of("stop", "freeze", "unfreeze", "end-freeze", "low-lag", "nametags").contains(action)) return filter(playbackIds(), args[2]);
-            if (args.length == 4 && action.equals("start")) return filter(List.of("loop"), args[3]);
-            if (args.length == 4 && action.equals("low-lag")) return filter(List.of("on", "off"), args[3]);
-            if (args.length == 4 && action.equals("nametags")) return filter(List.of("hide", "show"), args[3]);
-            return List.of();
-        }
+
+        if (root.equals("scene") || root.equals("scenes")) return sceneSuggestions(args);
+        if (root.equals("playing") || root.equals("playback")) return playbackSuggestions(args, root.equals("playing"));
         if (root.equals("customize")) return customizeSuggestions(args, 1);
         if (root.equals("formation")) {
             if (args.length == 2) return filter(List.of("help", "add"), args[1]);
             if (args.length == 3 && args[1].equalsIgnoreCase("add")) return filter(scenes.listScenes(), args[2]);
             if (args.length == 4 && args[1].equalsIgnoreCase("add")) return filter(scenes.listRecordings(), args[3]);
-            if (args.length == 5 && args[1].equalsIgnoreCase("add")) return filter(List.of("<rows>"), args[4]);
-            if (args.length == 6 && args[1].equalsIgnoreCase("add")) return filter(List.of("<columns>"), args[5]);
-            if (args.length == 7 && args[1].equalsIgnoreCase("add")) return filter(List.of("<spacing>"), args[6]);
+            if (args.length == 5 && args[1].equalsIgnoreCase("add")) return filter(List.of("5", "3", "1"), args[4]);
+            if (args.length == 6 && args[1].equalsIgnoreCase("add")) return filter(List.of("10", "5", "3"), args[5]);
+            if (args.length == 7 && args[1].equalsIgnoreCase("add")) return filter(List.of("2", "3", "4"), args[6]);
             return List.of();
         }
         if (root.equals("copy")) {
             if (args.length == 2) return filter(List.of("help", "scene"), args[1]);
             if (args.length == 3 && args[1].equalsIgnoreCase("scene")) return filter(scenes.listScenes(), args[2]);
-            if (args.length == 4 && args[1].equalsIgnoreCase("scene")) return filter(scenes.listScenes(), args[3]);
+            if (args.length == 4 && args[1].equalsIgnoreCase("scene")) return filter(List.of("new_scene", "scene_copy"), args[3]);
+            return List.of();
+        }
+        if (root.equals("settings")) return args.length == 2 ? filter(List.of("help", "info", "list"), args[1]) : List.of();
+        return List.of();
+    }
+
+    private List<String> sceneSuggestions(String[] args) {
+        if (args.length == 2) return filter(List.of("help", "add", "create", "add_to", "copy", "rename", "remove",
+                "remove_from", "modify", "info", "list", "play", "customize", "formation"), args[1]);
+        String action = args[1].toLowerCase(Locale.ROOT);
+        if (args.length == 3) {
+            return switch (action) {
+                case "add", "create" -> filter(List.of("new_scene", "scene_1"), args[2]);
+                case "copy", "rename" -> filter(scenes.listScenes(), args[2]);
+                case "remove", "delete", "info", "list", "play", "add_to", "addto", "add-to", "remove_from", "remove-from", "modify" ->
+                        filter(scenes.listScenes(), args[2]);
+                case "customize" -> filter(List.of("names", "skins", "name", "equipment"), args[2]);
+                case "formation" -> filter(List.of("add"), args[2]);
+                default -> List.of();
+            };
+        }
+        if (action.equals("copy") || action.equals("rename")) {
+            return args.length == 4 ? filter(List.of("new_scene", "scene_copy"), args[3]) : List.of();
+        }
+        if (List.of("remove_from", "remove-from", "modify").contains(action)) {
+            if (args.length == 4) return filter(scenes.sceneElementSuggestions(args[2]), args[3]);
+            if (action.equals("remove_from") || action.equals("remove-from")) return List.of();
+            if (args.length == 5) return filter(List.of("subscene_name", "player_name", "player_skin", "time", "transformations"), args[4]);
+            if (args.length >= 6) return sceneModifierSuggestions(args);
+        }
+        if (action.equals("info") || action.equals("list")) {
+            if (args.length == 4) return filter(scenes.sceneElementSuggestions(args[2]), args[3]);
+            return List.of();
+        }
+        if (List.of("add_to", "addto", "add-to").contains(action)) {
+            if (args.length == 4) return combineAndFilter(scenes.listRecordings(), scenes.listScenes(), args[3]);
+            if (args.length == 5) return filter(List.of("0", "1", "2", "5"), args[4]);
+            if (args.length == 6) return profileNameSuggestions(args[5]);
+            if (args.length == 7) return filter(List.of("default", "skin_from_player", "skin_from_file", "skin_from_mineskin"), args[6]);
+            if (args.length == 8) {
+                String type = args[6].toLowerCase(Locale.ROOT);
+                if (type.equals("skin_from_player") || type.equals("from_player")) return profileNameSuggestions(args[7]);
+                return filter(List.of("<skin_value>"), args[7]);
+            }
+            return List.of();
+        }
+        if (action.equals("play")) {
+            if (args.length == 4) return combineAndFilter(scenes.listRecordings(), scenes.listScenes(), args[3]);
+            if (args.length == 5) return filter(List.of("loop"), args[4]);
+        }
+        if (action.equals("customize")) {
+            String[] shifted = shift(args, 1, "customize");
+            return customizeSuggestions(shifted, 1);
+        }
+        if (action.equals("formation")) {
+            if (args.length == 4 && args[2].equalsIgnoreCase("add")) return filter(scenes.listScenes(), args[3]);
+            if (args.length == 5 && args[2].equalsIgnoreCase("add")) return filter(scenes.listRecordings(), args[4]);
+            if (args.length == 6 && args[2].equalsIgnoreCase("add")) return filter(List.of("5", "3", "1"), args[5]);
+            if (args.length == 7 && args[2].equalsIgnoreCase("add")) return filter(List.of("10", "5", "3"), args[6]);
+            if (args.length == 8 && args[2].equalsIgnoreCase("add")) return filter(List.of("2", "3", "4"), args[7]);
         }
         return List.of();
     }
 
+    private List<String> sceneModifierSuggestions(String[] args) {
+        int valueCount = args.length - 5;
+        String property = args[4].toLowerCase(Locale.ROOT);
+        if (property.equals("subscene_name")) return args.length == 6
+                ? combineAndFilter(scenes.listRecordings(), scenes.listScenes(), args[5]) : List.of();
+        if (property.equals("player_name")) {
+            if (args.length == 6) return filter(List.of("inherited", "blank", "set"), args[5]);
+            if (args.length == 7 && args[5].equalsIgnoreCase("set")) return profileNameSuggestions(args[6]);
+        }
+        if (property.equals("player_skin")) {
+            if (args.length == 6) return filter(List.of("default", "from_player", "from_file", "from_mineskin"), args[5]);
+            if (args.length == 7 && args[5].equalsIgnoreCase("from_player")) return profileNameSuggestions(args[6]);
+        }
+        if (property.equals("time")) {
+            if (args.length == 6) return filter(List.of("start_delay", "wait_on_start", "wait_on_end", "wait_for_parent_end", "loop"), args[5]);
+            if (args.length == 7 && List.of("wait_for_parent_end", "loop").contains(args[5].toLowerCase(Locale.ROOT))) return filter(List.of("true", "false"), args[6]);
+            if (args.length == 7 && List.of("start_delay", "wait_on_start", "wait_on_end").contains(args[5].toLowerCase(Locale.ROOT))) return filter(List.of("0", "1", "2", "5"), args[6]);
+        }
+        if (property.equals("transformations")) {
+            if (args.length == 6) return filter(List.of("offset", "rotation", "mirror", "scale"), args[5]);
+            if (args.length == 7 && args[5].equalsIgnoreCase("mirror")) return filter(List.of("none", "x", "z", "xz"), args[6]);
+            if (args.length == 7 && args[5].equalsIgnoreCase("scale")) return filter(List.of("of_player", "of_scene"), args[6]);
+            if (args.length == 8 && args[5].equalsIgnoreCase("scale")) return filter(List.of("0.5", "1", "2"), args[7]);
+            if (args.length == 7 && List.of("rotation", "offset").contains(args[5].toLowerCase(Locale.ROOT))) return filter(List.of("0", "90", "180", "270"), args[6]);
+            if (args.length >= 7 && args[5].equalsIgnoreCase("offset")) return filter(List.of("0", "1", "-1"), args[args.length - 1]);
+        }
+        return List.of();
+    }
+
+    private List<String> playbackSuggestions(String[] args, boolean upstreamSyntax) {
+        if (args.length == 2) {
+            return filter(upstreamSyntax
+                    ? List.of("help", "start", "stop", "stop_all", "modifiers", "list")
+                    : List.of("help", "start", "list", "stop", "stopall", "freeze", "unfreeze", "end-freeze", "low-lag", "nametags"), args[1]);
+        }
+        String action = args[1].toLowerCase(Locale.ROOT);
+        if (args.length == 3 && action.equals("start")) return combineAndFilter(scenes.listRecordings(), scenes.listScenes(), args[2]);
+        if (args.length == 3 && List.of("stop", "freeze", "unfreeze", "end-freeze", "low-lag", "nametags").contains(action)) return filter(playbackIds(), args[2]);
+        if (args.length == 3 && action.equals("stop_all")) return filter(List.of("including_others", "excluding_others"), args[2]);
+        if (upstreamSyntax && args.length == 4 && action.equals("start")) return profileNameSuggestions(args[3]);
+        if (upstreamSyntax && args.length == 5 && action.equals("start")) return filter(List.of("skin_from_player", "skin_from_file", "skin_from_mineskin", "default"), args[4]);
+        if (upstreamSyntax && args.length == 6 && action.equals("start")
+                && (args[4].equalsIgnoreCase("skin_from_player") || args[4].equalsIgnoreCase("from_player"))) return profileNameSuggestions(args[5]);
+        if (args.length == 4 && action.equals("start") && !upstreamSyntax) return filter(List.of("loop"), args[3]);
+        if (args.length == 4 && action.equals("low-lag")) return filter(List.of("on", "off"), args[3]);
+        if (args.length == 4 && action.equals("nametags")) return filter(List.of("hide", "show"), args[3]);
+        if (action.equals("modifiers") && args.length == 3) return filter(List.of("help", "list", "reset", "set", "add_to"), args[2]);
+        if (action.equals("modifiers") && args.length == 4 && args[2].equalsIgnoreCase("add_to")) return filter(scenes.listScenes(), args[3]);
+        if (action.equals("modifiers") && args.length == 5 && args[2].equalsIgnoreCase("add_to")) return combineAndFilter(scenes.listRecordings(), scenes.listScenes(), args[4]);
+        return List.of();
+    }
+
     private List<String> rootSuggestions(String prefix) {
-        return filter(List.of("help", "info", "recording", "recordings", "scene", "playback", "customize", "formation", "copy"), prefix);
+        return filter(List.of("help", "info", "recording", "recordings", "scenes", "scene", "playing", "playback", "settings", "customize", "formation", "copy"), prefix);
     }
 
     private List<String> playerAndSelectorSuggestions(String prefix) {
         List<String> values = new ArrayList<>(List.of("@a", "@p", "@s"));
         values.addAll(Bukkit.getOnlinePlayers().stream().map(Player::getName).toList());
         return filter(values, prefix);
+    }
+
+    private List<String> profileNameSuggestions(String prefix) {
+        List<String> values = new ArrayList<>(List.of("Steve", "Alex"));
+        values.addAll(Bukkit.getOnlinePlayers().stream().map(Player::getName).toList());
+        values.addAll(scenes.knownProfiles());
+        return commaSeparatedSuggestions(values, prefix);
+    }
+
+    private List<String> commaSeparatedSuggestions(List<String> values, String rawPrefix) {
+        String prefix = rawPrefix == null ? "" : rawPrefix;
+        int comma = prefix.lastIndexOf(',');
+        String existing = comma >= 0 ? prefix.substring(0, comma + 1) : "";
+        String partial = comma >= 0 ? prefix.substring(comma + 1).trim() : prefix.trim();
+        return filter(values, partial).stream().map(value -> existing + value).distinct().toList();
     }
 
     private List<String> playbackIds() {
@@ -783,8 +891,8 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         }
         if (rel == 2 && List.of("names", "skins", "name").contains(action)) return filter(scenes.listScenes(), args[base + 1]);
         if (rel == 3 && action.equals("name")) return filter(List.of("<element-index>"), args[base + 2]);
-        if (rel == 4 && action.equals("name")) return playerAndSelectorSuggestions(args[base + 3]);
-        if (rel == 3 && List.of("names", "skins").contains(action)) return filter(List.of("<comma,separated,values>"), args[base + 2]);
+        if (rel == 4 && action.equals("name")) return profileNameSuggestions(args[base + 3]);
+        if (rel == 3 && List.of("names", "skins").contains(action)) return profileNameSuggestions(args[base + 2]);
         return List.of();
     }
 
