@@ -18,8 +18,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - name: Check out Paper version branch
+      - name: Check out all version branches for source packaging
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
@@ -48,14 +50,49 @@ jobs:
           assert "MocapPaper" in plugin
           print("Validated Paper plugin descriptor and entrypoints:", sys.argv[1])
           PY
-      - name: Upload validated Paper JAR
+      - name: Prepare complete multi-target source ZIP and JAR checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin +refs/heads/main:refs/remotes/origin/main +refs/heads/fabric-1.21.11:refs/remotes/origin/fabric-1.21.11 +refs/heads/paper-1.21.11:refs/remotes/origin/paper-1.21.11
+          bundle_dir="$RUNNER_TEMP/mocap-complete-source"
+          mkdir -p "$bundle_dir/minecraft-26.1" "$bundle_dir/minecraft-1.21.11-fabric" "$bundle_dir/minecraft-1.21.11-paper"
+          git archive origin/main | tar -x -C "$bundle_dir/minecraft-26.1"
+          git archive origin/fabric-1.21.11 | tar -x -C "$bundle_dir/minecraft-1.21.11-fabric"
+          git archive HEAD | tar -x -C "$bundle_dir/minecraft-1.21.11-paper"
+          main_sha="$(git rev-parse origin/main)"
+          fabric_sha="$(git rev-parse origin/fabric-1.21.11)"
+          paper_sha="$(git rev-parse HEAD)"
+          cat > "$bundle_dir/SOURCE_BUNDLE_MANIFEST.md" <<EOF
+          # Mocap Complete Source Bundle
+
+          This ZIP keeps incompatible Minecraft targets as separate, independently buildable source snapshots.
+
+          - Minecraft 26.1 Fabric + NeoForge: `minecraft-26.1/` (branch `main`, commit `$main_sha`)
+          - Minecraft 1.21.11 Fabric: `minecraft-1.21.11-fabric/` (branch `fabric-1.21.11`, commit `$fabric_sha`)
+          - Paper 1.21.11 plugin: `minecraft-1.21.11-paper/paper-plugin-1.21.11/` (branch `paper-1.21.11`, commit `$paper_sha`)
+
+          Do not combine these roots into one universal JAR. Each target has its own dependencies, Java toolchain, and build workflow. The older separate `Ahsan3944/mocap-paper` prototype remains preserved in its own repository and is not the selected release implementation.
+          EOF
+          source_zip="$GITHUB_WORKSPACE/Mocap-Complete-Source-${paper_sha:0:7}.zip"
+          (cd "$RUNNER_TEMP" && zip -qr "$source_zip" mocap-complete-source)
+          unzip -t "$source_zip" >/dev/null
+          test -s "$source_zip"
+          jar_file="$(find paper-plugin-1.21.11/build/libs -maxdepth 1 -type f -name 'Mocap-PAPER-1.21.11-*.jar' ! -name '*-sources.jar' -size +10k -print -quit)"
+          test -n "$jar_file"
+          sha256sum "$jar_file" > "$jar_file.sha256"
+          sha256sum "$source_zip" > "$source_zip.sha256"
+      - name: Upload verified release artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: mocap-paper-1.21.11-uop1
+          name: mocap-complete-release-1.21.11
           if-no-files-found: error
           retention-days: 90
           path: |
             paper-plugin-1.21.11/build/libs/Mocap-PAPER-1.21.11-*.jar
+            paper-plugin-1.21.11/build/libs/Mocap-PAPER-1.21.11-*.jar.sha256
+            Mocap-Complete-Source-*.zip
+            Mocap-Complete-Source-*.zip.sha256
             !paper-plugin-1.21.11/build/libs/*-sources.jar
       - name: Publish Paper plugin as a GitHub prerelease
         env:
@@ -67,4 +104,8 @@ jobs:
           test -n "$jar_file"
           source_sha="$(git rev-parse HEAD)"
           tag="mocap-paper-1.21.11-uop1-${source_sha:0:7}"
-          gh release create "$tag" --target "$source_sha" --title "Mocap Paper 1.21.11 — UltraOP port" --notes "Built on Java 21. Unit tests, JAR integrity, plugin descriptor, and entrypoint checks passed. This is a Paper Mannequin visual playback port; see paper-plugin-1.21.11/PORT_REPORT.md for action parity limits and required live tests." --prerelease "$jar_file"
+          source_zip="$GITHUB_WORKSPACE/Mocap-Complete-Source-${source_sha:0:7}.zip"
+          test -s "$source_zip"
+          test -s "$jar_file.sha256"
+          test -s "$source_zip.sha256"
+          gh release create "$tag" --target "$source_sha" --title "Mocap Paper 1.21.11 — UltraOP port" --notes "Built on Java 21. Parser/scene unit tests, JAR integrity, plugin descriptor, entrypoint checks, source bundle integrity, and SHA-256 manifests passed. The attached complete source ZIP contains separate snapshots for Minecraft 26.1, Fabric 1.21.11, and Paper 1.21.11. This is a Paper Mannequin visual playback port; see paper-plugin-1.21.11/PORT_REPORT.md for action parity limits and required live tests. Live Minecraft acceptance tests remain outstanding." --prerelease "$jar_file" "$jar_file.sha256" "$source_zip" "$source_zip.sha256"
