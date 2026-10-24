@@ -5,7 +5,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 
 /**
- * Encodes the Mocap v1 legacy recording stream. The existing Paper parser
+ * Encodes a Mocap v3 recording stream using the compatible legacy movement actions. The existing Paper parser
  * supports this format, including delta position and pitch/yaw movement actions.
  */
 public final class MocapRecordingEncoder {
