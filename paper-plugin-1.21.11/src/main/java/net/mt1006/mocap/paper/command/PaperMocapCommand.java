@@ -250,14 +250,23 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             }
             case "modify" -> {
                 if (args.length >= 3 && eq(args[2], "move")) {
-                    if (args.length != 4) { usage(sender, "/mocap scenes modify move <scene-name>"); return; }
+                    if (args.length != 4 && args.length != 5) {
+                        usage(sender, "/mocap scenes modify move <scene-name> [<element-index[-expected-name]>]");
+                        return;
+                    }
                     if (!(sender instanceof Player player)) throw new IOException("Scene move requires an in-game target selection.");
                     Location target = plugin.placementAnchor(player);
-                    if (target == null) throw new IOException("No target selected. Run /mocap formation tool, then right-click the destination block before moving a scene.");
-                    scenes.moveSceneTo(args[3], target);
-                    sender.sendMessage(ChatColor.GREEN + "Moved the entire Scene ." + ChatColor.AQUA + MocapSceneStore.normalizeSceneName(args[3])
-                            + ChatColor.GREEN + " so its first actor is at the selected destination.");
-                    sender.sendMessage(ChatColor.GRAY + "Use /mocap scenes modify move " + args[3] + " again with a new selection to move the complete team again.");
+                    if (target == null) throw new IOException("No target selected. Run /mocap formation tool, then right-click the destination block before moving a scene or actor.");
+                    if (args.length == 5) {
+                        scenes.moveSceneElementTo(args[3], args[4], target);
+                        sender.sendMessage(ChatColor.GREEN + "Moved element " + ChatColor.AQUA + args[4]
+                                + ChatColor.GREEN + " in Scene ." + ChatColor.AQUA + MocapSceneStore.normalizeSceneName(args[3])
+                                + ChatColor.GREEN + " to the selected destination.");
+                    } else {
+                        scenes.moveSceneTo(args[3], target);
+                        sender.sendMessage(ChatColor.GREEN + "Moved the entire Scene ." + ChatColor.AQUA + MocapSceneStore.normalizeSceneName(args[3])
+                                + ChatColor.GREEN + " so its first actor is at the selected destination.");
+                    }
                     return;
                 }
                 if (args.length >= 3 && eq(args[2], "copy")) {
@@ -278,7 +287,7 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
                 }
                 if (args.length < 5) {
                     sender.sendMessage(ChatColor.YELLOW + "Usage: /mocap scenes modify <scene> <element> <property> <values...>");
-                    sender.sendMessage(ChatColor.WHITE + "/mocap scenes modify move <scene-name>");
+                    sender.sendMessage(ChatColor.WHITE + "/mocap scenes modify move <scene-name> [<element-index[-expected-name]>]");
                     sender.sendMessage(ChatColor.WHITE + "/mocap scenes modify copy <source-scene> <new-scene-name>");
                     sender.sendMessage(ChatColor.GRAY + "Per-element properties: subscene_name, player_name, player_skin, time, transformations.");
                     return;
@@ -377,7 +386,7 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.WHITE + "/mocap scenes add_to <scene> <recording|.nested_scene> [<wait_on_start_seconds>] [<player_name>] [<skin_source> <skin_value>]");
         sender.sendMessage(ChatColor.WHITE + "/mocap scenes rename <source> <target>");
         sender.sendMessage(ChatColor.WHITE + "/mocap scenes <remove <scene>|remove_from <scene> <element>>");
-        sender.sendMessage(ChatColor.WHITE + "/mocap scenes modify move <scene>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap scenes modify move <scene> [<element-index[-expected-name]>]");
         sender.sendMessage(ChatColor.WHITE + "/mocap scenes modify copy <source> <new-scene-name>");
         sender.sendMessage(ChatColor.WHITE + "/mocap scenes modify <scene> <element> <property> <values...>");
         sender.sendMessage(ChatColor.WHITE + "/mocap scenes <list [scene]|info <scene> [element]>");
