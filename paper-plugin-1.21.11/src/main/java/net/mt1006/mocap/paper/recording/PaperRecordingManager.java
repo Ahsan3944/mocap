@@ -273,7 +273,7 @@ public final class PaperRecordingManager {
             Location start = player.getLocation();
             lastX = start.getX(); lastY = start.getY(); lastZ = start.getZ();
             lastYaw = start.getYaw(); lastPitch = start.getPitch();
-            encoder = new MocapRecordingEncoder(lastX, lastY, lastZ, lastYaw, lastPitch);
+            encoder = new MocapRecordingEncoder(lastX, lastY, lastZ, lastYaw, lastPitch, playerName);
         }
     }
 
