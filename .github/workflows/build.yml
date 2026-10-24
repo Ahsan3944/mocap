@@ -25,17 +25,21 @@ jobs:
           distribution: temurin
           java-version: '25'
 
-      - name: Fix and persist Gradle wrapper executable bit
+      - name: Apply compile fixes and persist source changes
         shell: bash
         run: |
           set -euo pipefail
+          test -f compile-fixes.patch
+          git apply --check compile-fixes.patch
+          git apply compile-fixes.patch
+          rm compile-fixes.patch
           chmod +x ./gradlew
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git update-index --chmod=+x gradlew
-          git add gradlew
+          git add -A
           if ! git diff --cached --quiet; then
-            git commit -m "Mark Gradle wrapper executable"
+            git commit -m "Fix compile compatibility and Gradle wrapper permission"
             git push origin HEAD:main
           fi
           echo "BUILD_SOURCE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
