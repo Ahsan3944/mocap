@@ -205,6 +205,16 @@ public final class MocapSceneStore {
             if (version == null || !version.isJsonPrimitive() || !version.getAsJsonPrimitive().isNumber()) {
                 throw new IOException("Scene does not contain a numeric format version.");
             }
+            final int versionNumber;
+            try {
+                versionNumber = version.getAsInt();
+            } catch (RuntimeException e) {
+                throw new IOException("Scene format version is invalid.", e);
+            }
+            int absoluteVersion = Math.abs(versionNumber);
+            if (absoluteVersion < 1 || absoluteVersion > 4) {
+                throw new IOException("Unsupported Mocap scene format version " + versionNumber + "; this Paper port supports versions 1–4.");
+            }
             JsonArray entries = requireEntries(scene);
             if (entries.size() > MAX_ELEMENTS) throw new IOException("Scene exceeds the 5,000-element safety limit.");
             return scene;
