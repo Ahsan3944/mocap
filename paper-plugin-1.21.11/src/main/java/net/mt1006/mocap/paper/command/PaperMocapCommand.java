@@ -602,13 +602,20 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             case "random_names", "names" -> assignProfiles(sender, args, false);
             case "random_skins", "skins" -> assignProfiles(sender, args, true);
             case "set_name", "name" -> {
-                if (args.length < 4) { usage(sender, "/mocap customize name <scene> <element-index> <player-name>"); return; }
-                scenes.setElementPlayerName(args[1], Integer.parseInt(args[2]), args[3]);
-                sender.sendMessage("Saved player name for scene ." + MocapSceneStore.normalizeSceneName(args[1]) + " element " + args[2] + ".");
+                if (args.length < 4) { usage(sender, "/mocap customize name <scene> <element-index[-expected-name]> <player-name>"); return; }
+                setSceneElementPlayerName(sender, args[1], args[2], args[3]);
             }
             case "equipment" -> equipmentCommand(sender, args);
             default -> sender.sendMessage("Unknown customize action: " + action);
         }
+    }
+
+    private void setSceneElementPlayerName(CommandSender sender, String sceneName, String elementIndex, String playerName) throws IOException {
+        // Reuse the scene modifier parser so the TAB-completed 001-recording_name form is valid
+        // and the expected element name prevents editing a different element after reorder.
+        scenes.modifySceneElement(sceneName, elementIndex, "player_name", new String[]{"set", playerName});
+        sender.sendMessage(ChatColor.GREEN + "Saved player name " + playerName + " for scene ."
+                + MocapSceneStore.normalizeSceneName(sceneName) + " element " + elementIndex + ".");
     }
 
     private void assignProfiles(CommandSender sender, String[] args, boolean skins) throws IOException {
