@@ -25,7 +25,7 @@ This ledger distinguishes source implementation from verified behavior. **Java 2
 |---|---|---|
 | Random unique names | Implemented and persisted in scene file | Test repeat playback, restart, duplicate/case-variant inputs, and individual edits |
 | Change one assigned name later | Existing scene `player_name set` modifier retained | Test edit/save/reload workflow |
-| Random unique skin profile assignment | Implemented and persisted; profile prefetch runs in a bounded two-thread daemon pool | Test cache hits, unavailable profiles, rate limits, and start latency |
+| Random unique skin profile assignment | Implemented and persisted; profile prefetch runs in a two-thread daemon pool | Test cache hits, unavailable profiles, rate limits, and start latency |
 | Formation builder | Implemented; centered X/Z grid, command and scene caps | Test offsets, scene center modes, nested transforms, and all grid sizes |
 | Copy scene while retaining source and leftmost anchor option | Existing full scene copy retained; `COMMON_LEFTMOST` scene-center mode added | Runtime test with nested scene/modifier data and rotated placements |
 | Nested scenes | Existing feature retained; partial startup cleanup and end-freeze propagation added | Test nested transforms, cleanup, loop, stop, and freeze interactions |
