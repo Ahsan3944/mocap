@@ -685,20 +685,39 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
                     sender.sendMessage(groups.isEmpty() ? "No " + kind + " groups saved." : ChatColor.GOLD + kind.toUpperCase(Locale.ROOT) + " GROUPS: " + String.join(", ", groups));
                     return;
                 }
-                List<ProfileLibraryStore.Entry> entries = args.length >= 4
-                        ? profileLibraries.list(kind, args[2], args[3]) : profileLibraries.list(kind, args[2]);
+                if (args.length > 5) { usage(sender, "/mocap " + kind + " list <group> [<subgroup>] [<page>|page:<page>]"); return; }
+                String groupName = args[2];
+                String subgroup = null;
+                int page = 1;
+                if (args.length >= 4) {
+                    if (args[3].toLowerCase(Locale.ROOT).startsWith("page:")) {
+                        page = parseProfilePage(args[3]);
+                    } else {
+                        subgroup = args[3];
+                    }
+                }
+                if (args.length >= 5) page = parseProfilePage(args[4]);
+                List<ProfileLibraryStore.Entry> entries = subgroup == null
+                        ? profileLibraries.list(kind, groupName) : profileLibraries.list(kind, groupName, subgroup);
                 if (entries.isEmpty()) {
-                    sender.sendMessage(ChatColor.YELLOW + "No " + kind + " entries found for " + args[2]
-                            + (args.length >= 4 ? "/" + args[3] : "") + ".");
+                    sender.sendMessage(ChatColor.YELLOW + "No " + kind + " entries found for " + groupName
+                            + (subgroup == null ? "" : "/" + subgroup) + ".");
                     return;
                 }
-                sender.sendMessage(ChatColor.GOLD + kind.toUpperCase(Locale.ROOT) + " • " + args[2]
-                        + (args.length >= 4 ? "/" + args[3] : "") + " (" + entries.size() + " entries)");
-                for (int i = 0; i < Math.min(entries.size(), 60); i++) {
+                int pageSize = 60;
+                int pages = (entries.size() + pageSize - 1) / pageSize;
+                if (page > pages) throw new IOException("Page " + page + " is outside this list; choose page 1–" + pages + ".");
+                int start = (page - 1) * pageSize;
+                int end = Math.min(entries.size(), start + pageSize);
+                sender.sendMessage(ChatColor.GOLD + kind.toUpperCase(Locale.ROOT) + " • " + groupName
+                        + (subgroup == null ? " (all subgroups)" : "/" + subgroup)
+                        + " • page " + page + "/" + pages + " • entries " + (start + 1) + "–" + end + " of " + entries.size());
+                for (int i = start; i < end; i++) {
                     ProfileLibraryStore.Entry entry = entries.get(i);
                     sender.sendMessage(ChatColor.GRAY + "[" + entry.id() + "] " + ChatColor.WHITE + entry.value());
                 }
-                if (entries.size() > 60) sender.sendMessage(ChatColor.GRAY + "... and " + (entries.size() - 60) + " more. Use a subgroup or /mocap " + kind + " info.");
+                if (pages > 1) sender.sendMessage(ChatColor.GRAY + "Next page: /mocap " + kind + " list " + groupName
+                        + (subgroup == null ? " page:" : " " + subgroup + " ") + (page + 1) + " (or use page:" + (page + 1) + " when listing all subgroups).");
             }
             case "save", "add" -> {
                 if (args.length < 5) {
@@ -755,6 +774,18 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         }
     }
 
+    private static int parseProfilePage(String raw) throws IOException {
+        String text = raw == null ? "" : raw.trim();
+        if (text.toLowerCase(Locale.ROOT).startsWith("page:")) text = text.substring(5);
+        try {
+            int page = Integer.parseInt(text);
+            if (page < 1) throw new IOException("Page numbers start at 1.");
+            return page;
+        } catch (NumberFormatException e) {
+            throw new IOException("Page must be a positive whole number, or use page:<number>.", e);
+        }
+    }
+
     private static void reportProfileListChange(CommandSender sender, String kind, String group, String subgroup,
                                                 List<ProfileLibraryStore.Entry> changed, boolean replaced) {
         sender.sendMessage(ChatColor.GREEN + (replaced ? "Saved/replaced " : "Added ")
@@ -803,13 +834,30 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             }
         }
         if (args.length == 4) {
-            if (List.of("list", "save", "add", "import", "import-add", "remove", "delete", "info").contains(action)) {
+            if (action.equals("list")) {
+                try {
+                    List<String> options = new ArrayList<>(profileLibraries.listSubgroups(kind, args[2]));
+                    options.add("page:1");
+                    return filter(options, args[3]);
+                } catch (IOException ignored) { return List.of("<subgroup-name>", "page:1"); }
+            }
+            if (List.of("save", "add", "import", "import-add", "remove", "delete", "info").contains(action)) {
                 try {
                     List<String> subgroups = new ArrayList<>(profileLibraries.listSubgroups(kind, args[2]));
                     if (List.of("save", "add").contains(action)) subgroups.add("<new-subgroup-name>");
                     return filter(subgroups, args[3]);
                 } catch (IOException ignored) { return List.of("<subgroup-name>"); }
             }
+        }
+        if (args.length == 5 && action.equals("list")) {
+            try {
+                List<ProfileLibraryStore.Entry> entries = args[3].toLowerCase(Locale.ROOT).startsWith("page:")
+                        ? profileLibraries.list(kind, args[2]) : profileLibraries.list(kind, args[2], args[3]);
+                int pages = Math.max(1, (entries.size() + 59) / 60);
+                List<String> availablePages = new ArrayList<>();
+                for (int page = 1; page <= pages; page++) availablePages.add(Integer.toString(page));
+                return filter(availablePages, args[4]);
+            } catch (IOException ignored) { return List.of("1"); }
         }
         if (args.length == 5 && List.of("save", "add").contains(action)) return filterOrHint(List.of(), args[4], "<comma,separated,official-profile-names>");
         if (args.length == 5 && List.of("import", "import-add").contains(action)) return filterOrHint(List.of(), args[4], "<file-name.txt:put-in-profile-libraries/imports>");
