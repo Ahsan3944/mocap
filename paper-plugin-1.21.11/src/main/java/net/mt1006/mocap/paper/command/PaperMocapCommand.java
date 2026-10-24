@@ -813,7 +813,8 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "       " + kind.toUpperCase(Locale.ROOT) + " LIBRARY");
         sender.sendMessage(ChatColor.WHITE + "/mocap " + kind + " groups");
         sender.sendMessage(ChatColor.WHITE + "/mocap " + kind + " subgroups <group>");
-        sender.sendMessage(ChatColor.WHITE + "/mocap " + kind + " list <group> [<subgroup>]");
+        sender.sendMessage(ChatColor.WHITE + "/mocap " + kind + " list <group> [<subgroup>] [<page>]");
+        sender.sendMessage(ChatColor.GRAY + "When listing across all subgroups, use page:<page> in place of <subgroup> (for example: /mocap " + kind + " list Story1 page:2).");
         sender.sendMessage(ChatColor.WHITE + "/mocap " + kind + " save <group> <subgroup> <comma,separated,names>");
         sender.sendMessage(ChatColor.WHITE + "/mocap " + kind + " add <group> <subgroup> <comma,separated,names>");
         sender.sendMessage(ChatColor.WHITE + "/mocap " + kind + " import <group> <subgroup> <file-name.txt>");
