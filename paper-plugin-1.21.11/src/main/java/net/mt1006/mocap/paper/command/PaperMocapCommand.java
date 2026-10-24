@@ -769,24 +769,70 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
     }
 
     private void assignProfiles(CommandSender sender, String[] args, boolean skins) throws IOException {
+        String kind = skins ? "skins" : "names";
         if (args.length < 3) {
-            usage(sender, "/mocap customize " + (skins ? "skins" : "names") + " <scene> <comma,separated,values|auto>");
+            usage(sender, "/mocap customize " + kind + " <scene> <group> <auto|comma,separated,official,names>");
             return;
         }
-        List<String> values = Arrays.stream(String.join(" ", Arrays.copyOfRange(args, 2, args.length)).split(","))
-                .map(String::trim).filter(s -> !s.isEmpty()).toList();
-        if (values.size() == 1 && List.of("auto", "random", "recorded").contains(values.get(0).toLowerCase(Locale.ROOT))) {
-            LinkedHashSet<String> candidates = new LinkedHashSet<>(scenes.knownProfiles());
+
+        List<String> tail = Arrays.stream(Arrays.copyOfRange(args, 2, args.length)).map(String::trim).filter(s -> !s.isEmpty()).toList();
+        String first = tail.isEmpty() ? "" : tail.get(0);
+        String last = tail.isEmpty() ? "" : tail.get(tail.size() - 1);
+        boolean auto = List.of("auto", "random", "recorded").contains(last.toLowerCase(Locale.ROOT));
+        List<String> groups = profileLibraries.listGroups(kind);
+        boolean namedGroup = !first.contains(",") && groups.stream().anyMatch(g -> g.equalsIgnoreCase(first));
+        List<String> values;
+        String scopeForMessage = null;
+
+        if (auto && namedGroup && tail.size() >= 2) {
+            String group = first;
+            String scope = tail.size() >= 3 ? tail.get(1) : null;
+            if (scope != null && scope.equalsIgnoreCase("auto")) scope = null;
+            if (scope != null && scope.contains("/")) {
+                String[] parts = scope.split("/", 2);
+                if (!parts[0].equalsIgnoreCase(group)) throw new IOException("Subgroup scope must stay inside the selected group: " + group + ".");
+                scopeForMessage = parts[1];
+                values = profileLibraries.values(kind, parts[0], parts[1]);
+            } else if (scope != null && profileLibraries.listSubgroups(kind, group).stream().anyMatch(s -> s.equalsIgnoreCase(scope))) {
+                scopeForMessage = scope;
+                values = profileLibraries.values(kind, group, scope);
+            } else {
+                values = profileLibraries.values(kind, group);
+            }
+            if (values.isEmpty()) throw new IOException("No saved " + kind + " profiles in " + group
+                    + (scopeForMessage == null ? "" : "/" + scopeForMessage) + ". Add profiles with /mocap " + kind + " add first.");
+            sender.sendMessage(ChatColor.GRAY + "Auto pool: " + group + (scopeForMessage == null ? "" : "/" + scopeForMessage)
+                    + " (" + values.size() + " saved profiles). Assignment is randomized independently per actor.");
+        } else if (auto && tail.size() == 1) {
+            LinkedHashSet<String> candidates = new LinkedHashSet<>();
+            for (String group : groups) candidates.addAll(profileLibraries.values(kind, group));
+            candidates.addAll(scenes.knownProfiles());
             Bukkit.getOnlinePlayers().stream().map(Player::getName).forEach(candidates::add);
             if (candidates.isEmpty()) {
                 candidates.add("Steve");
                 candidates.add("Alex");
             }
             values = List.copyOf(candidates);
-            sender.sendMessage(ChatColor.GRAY + "Auto pool uses saved recording profile names, existing scene names/skin profiles, and online players.");
+            sender.sendMessage(ChatColor.GRAY + "Auto pool combines saved library profiles, recorded/scene profile names and online players.");
+        } else if (namedGroup && tail.size() >= 2) {
+            String group = first;
+            String raw = String.join(" ", tail.subList(1, tail.size()));
+            values = Arrays.stream(raw.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
+            List<String> available = profileLibraries.values(kind, group);
+            for (String value : values) {
+                if (available.stream().noneMatch(v -> v.equalsIgnoreCase(value))) {
+                    throw new IOException("'" + value + "' is not saved in " + kind + " group '" + group
+                            + "'. Use /mocap " + kind + " list " + group + " or select auto.");
+                }
+            }
+            sender.sendMessage(ChatColor.GRAY + "Using " + values.size() + " selected profile(s) from " + group + ".");
+        } else {
+            String raw = String.join(" ", tail);
+            values = Arrays.stream(raw.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
         }
+
         if (values.isEmpty()) {
-            usage(sender, "/mocap customize " + (skins ? "skins" : "names") + " <scene> <comma,separated,values|auto>");
+            usage(sender, "/mocap customize " + kind + " <scene> <group> <auto|comma,separated,official,names>");
             return;
         }
         scenes.assignRandomProfiles(args[1], values, skins);
