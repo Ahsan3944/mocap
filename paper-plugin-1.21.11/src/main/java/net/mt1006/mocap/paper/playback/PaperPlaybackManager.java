@@ -46,6 +46,11 @@ public final class PaperPlaybackManager {
     }
 
     public String start(String playableName, World world, boolean loop, Location anchor) throws IOException {
+        return start(playableName, world, loop, anchor, null, null);
+    }
+
+    public String start(String playableName, World world, boolean loop, Location anchor,
+                        String displayNameOverride, String profileNameOverride) throws IOException {
         List<MocapSceneStore.ActorSpec> specs = scenes.expand(playableName);
         if (activeActors + specs.size() > MAX_ACTIVE_MANNEQUINS) {
             throw new IOException("Paper playback limit is " + MAX_ACTIVE_MANNEQUINS + " active mannequins.");
@@ -73,10 +78,10 @@ public final class PaperPlaybackManager {
         List<Actor> actors = new ArrayList<>(prepared.size());
         try {
             for (PreparedActor preparedActor : prepared) {
-                String profileName = firstNonBlank(preparedActor.spec().skinProfile(),
-                        preparedActor.spec().playerName(), preparedActor.recording().recordedProfileName(),
+                String profileName = firstNonBlank(profileNameOverride, preparedActor.spec().skinProfile(),
+                        preparedActor.recording().recordedProfileName(), preparedActor.spec().playerName(),
                         preparedActor.spec().recordingName(), "Steve");
-                String displayName = firstNonBlank(preparedActor.spec().playerName(),
+                String displayName = firstNonBlank(displayNameOverride, preparedActor.spec().playerName(),
                         preparedActor.recording().recordedProfileName(), preparedActor.spec().recordingName(), "Mocap");
                 Location initial = locationAt(preparedActor, preparedActor.recording().frames().get(0), world,
                         anchorX, anchorY, anchorZ);
