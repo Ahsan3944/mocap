@@ -599,17 +599,76 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
 
     private void formationCommand(CommandSender sender, String[] args) throws IOException {
         if (args.length == 1 || eq(args[1], "help")) {
-            sender.sendMessage("Formation: add <scene> <recording> <rows> <columns> <spacing>");
-            sender.sendMessage("Example: /mocap formation add battle warrior 5 10 2");
+            formationHelp(sender);
             return;
         }
         String action = args[1].toLowerCase(Locale.ROOT);
-        if (!eq(action, "add")) { sender.sendMessage("Unknown formation action: " + action); return; }
-        if (args.length < 7) { usage(sender, "/mocap formation add <scene> <recording> <rows> <columns> <spacing>"); return; }
-        int rows = Integer.parseInt(args[4]), columns = Integer.parseInt(args[5]);
-        double spacing = Double.parseDouble(args[6]);
-        scenes.addFormation(args[2], args[3], rows, columns, spacing);
-        sender.sendMessage("Added " + ((long) rows * columns) + " recording actor(s) to scene ." + MocapSceneStore.normalizeSceneName(args[2]) + ".");
+        if (!eq(action, "add")) {
+            sender.sendMessage(ChatColor.RED + "Unknown formation action: " + action);
+            formationHelp(sender);
+            return;
+        }
+        if (args.length < 7) {
+            sender.sendMessage(ChatColor.YELLOW + "Usage: /mocap formation add <scene-name> <recording-name> <rows:1-1000> <columns:1-1000> <spacing-blocks:0.5-128>");
+            sender.sendMessage(ChatColor.GRAY + "Order: destination scene → source saved recording → rows (Z) → columns (X) → spacing in blocks.");
+            return;
+        }
+
+        String sceneName = args[2];
+        String recordingName = args[3];
+        int rows = parseBoundedInteger(args[4], "rows", 1, MocapSceneStore.MAX_FORMATION_ADDITIONS);
+        int columns = parseBoundedInteger(args[5], "columns", 1, MocapSceneStore.MAX_FORMATION_ADDITIONS);
+        long actorCount = (long) rows * columns;
+        if (actorCount > MocapSceneStore.MAX_FORMATION_ADDITIONS) {
+            throw new IOException("Formation rows × columns is " + actorCount + "; maximum is "
+                    + MocapSceneStore.MAX_FORMATION_ADDITIONS + " actors. Reduce rows or columns.");
+        }
+        double spacing = parseBoundedDecimal(args[6], "spacing-blocks", 0.5, 128.0);
+        scenes.addFormation(sceneName, recordingName, rows, columns, spacing);
+        sender.sendMessage(ChatColor.GREEN + "Formation added to scene ." + MocapSceneStore.normalizeSceneName(sceneName) + ".");
+        sender.sendMessage(ChatColor.GRAY + "Source recording: " + ChatColor.WHITE + recordingName
+                + ChatColor.GRAY + " | Rows (Z): " + ChatColor.AQUA + rows
+                + ChatColor.GRAY + " | Columns (X): " + ChatColor.AQUA + columns
+                + ChatColor.GRAY + " | Spacing: " + ChatColor.AQUA + spacing + " blocks"
+                + ChatColor.GRAY + " | Actors added: " + ChatColor.GREEN + actorCount);
+    }
+
+    private static void formationHelp(CommandSender sender) {
+        sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "          FORMATION BUILDER");
+        sender.sendMessage(ChatColor.WHITE + "/mocap formation add <scene-name> <recording-name> <rows:1-1000> <columns:1-1000> <spacing-blocks:0.5-128>");
+        sender.sendMessage(ChatColor.YELLOW + "ARGUMENT GUIDE");
+        sender.sendMessage(ChatColor.GRAY + "scene-name: existing destination scene; the formation is saved into this scene.");
+        sender.sendMessage(ChatColor.GRAY + "recording-name: an existing saved recording copied into every grid position.");
+        sender.sendMessage(ChatColor.GRAY + "rows: number of rows along the Z axis.");
+        sender.sendMessage(ChatColor.GRAY + "columns: number of actors in each row along the X axis.");
+        sender.sendMessage(ChatColor.GRAY + "spacing-blocks: distance between actors, in Minecraft blocks (0.5–128).");
+        sender.sendMessage(ChatColor.GRAY + "Example: /mocap formation add battle warrior 3 5 2");
+        sender.sendMessage(ChatColor.GRAY + "This example adds 15 actor elements using warrior, with 3 rows × 5 columns and 2-block spacing.");
+        sender.sendMessage(ChatColor.GRAY + "Limits: at most 1,000 additions per formation and 5,000 elements per scene.");
+        sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    }
+
+    private static int parseBoundedInteger(String raw, String argument, int min, int max) throws IOException {
+        final int value;
+        try { value = Integer.parseInt(raw); }
+        catch (NumberFormatException e) {
+            throw new IOException("Replace <" + argument + "> with a whole number from " + min + " to " + max + "; received '" + raw + "'.", e);
+        }
+        if (value < min || value > max) throw new IOException(argument + " must be between " + min + " and " + max + ".");
+        return value;
+    }
+
+    private static double parseBoundedDecimal(String raw, String argument, double min, double max) throws IOException {
+        final double value;
+        try { value = Double.parseDouble(raw); }
+        catch (NumberFormatException e) {
+            throw new IOException("Replace <" + argument + "> with a number from " + min + " to " + max + "; received '" + raw + "'.", e);
+        }
+        if (!Double.isFinite(value) || value < min || value > max) {
+            throw new IOException(argument + " must be between " + min + " and " + max + ".");
+        }
+        return value;
     }
 
     private void copyCommand(CommandSender sender, String[] args) throws IOException {
