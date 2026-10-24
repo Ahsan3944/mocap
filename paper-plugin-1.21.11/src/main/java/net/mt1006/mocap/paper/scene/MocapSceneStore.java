@@ -753,7 +753,7 @@ public final class MocapSceneStore {
         JsonElement raw = scene.get("mocap_global_offset");
         if (raw == null || !raw.isJsonArray() || raw.getAsJsonArray().size() != 3) return Transform.IDENTITY;
         JsonArray offset = raw.getAsJsonArray();
-        return new Transform(0, 1, 0, finite(offset.get(0)), finite(offset.get(1)), finite(offset.get(2)), false, false);
+        return new Transform(0, 1, finite(offset.get(0)), finite(offset.get(1)), finite(offset.get(2)), false, false);
     }
 
     /** Backwards-compatible equal-spacing overload. */
