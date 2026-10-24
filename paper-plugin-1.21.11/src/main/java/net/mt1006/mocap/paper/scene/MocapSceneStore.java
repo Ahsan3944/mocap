@@ -427,25 +427,24 @@ public final class MocapSceneStore {
         if (names.isEmpty()) throw new IOException("Provide at least one valid profile/name, separated by commas.");
         JsonObject scene = readScene(normalizeSceneName(sceneName));
         JsonArray entries = requireEntries(scene);
+        if (entries.isEmpty()) throw new IOException("Scene is empty. Add recordings with /mocap scenes add_to first.");
+        Random random = new Random();
         for (JsonElement entry : entries) {
             if (!entry.isJsonObject()) throw new IOException("Scene contains a malformed element.");
-            String name = getString(entry.getAsJsonObject(), "name", "");
-            if (name.startsWith(".")) throw new IOException("Random assignment currently requires direct recording elements; nested scenes are not changed.");
-            if (name.isBlank()) throw new IOException("Scene contains an element without a recording name.");
-            recordingPath(name);
-        }
-        int limit = Math.min(names.size(), entries.size());
-        Collections.shuffle(names, new Random());
-        for (int i = 0; i < limit; i++) {
-            JsonObject element = entries.get(i).getAsJsonObject();
+            JsonObject element = entry.getAsJsonObject();
+            String name = getString(element, "name", "");
+            validatePlayable(name);
+            // Pick independently per element, with replacement, so every actor in a large
+            // scene gets a randomized value even when the candidate list is short.
+            String selected = names.get(random.nextInt(names.size()));
             if (skins) {
                 JsonObject skin = element.has("player_skin") && element.get("player_skin").isJsonObject()
                         ? element.getAsJsonObject("player_skin") : new JsonObject();
                 skin.addProperty("skin_source", "from_player");
-                skin.addProperty("skin_path", names.get(i));
+                skin.addProperty("skin_path", selected);
                 element.add("player_skin", skin);
             } else {
-                element.addProperty("player_name", names.get(i));
+                element.addProperty("player_name", selected);
             }
         }
         writeScene(normalizeSceneName(sceneName), scene);
