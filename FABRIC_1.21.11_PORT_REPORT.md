@@ -10,6 +10,7 @@
 - Scene authoring: persisted random names/skins, grid formations, scene copy placement anchor, and bulk scene updates.
 - Playback controls: freeze/unfreeze, end-freeze, name-tag visibility sync, and collision-light playback.
 - Equipment presets: persistent groups, apply to playback tree or scene element, and randomize per actor.
+- Skin prefetch: two daemon workers, 256 pending queue cap, and safe handling of overflow requests.
 - Network safety: UTF-8 byte lengths, bounded packet reads, and versioned name-tag visibility packets.
 
 ## Verification policy

@@ -53,6 +53,6 @@ One recording of climbing stairs used multiple times in a scene with start delay
 
 This branch targets Minecraft 1.21.11 on Fabric. It backports saved random scene names and skin profiles, formation building, scene placement anchors, freeze/unfreeze/end-freeze controls, grouped equipment presets, name-tag controls, collision-light playback, scene safety limits, and loop recovery.
 
-Randomized names and skin profile names are saved to the scene and do not reroll on replay. Individual actor names can still be changed using the existing scene modifier command. Random name/skin assignment rejects scenes containing nested elements. Low-lag mode only reduces collision and fake-player bookkeeping costs; it does not guarantee smooth playback with hundreds or thousands of visible actors.
+Randomized names and skin profile names are saved to the scene and do not reroll on replay. Individual actor names can still be changed using the existing scene modifier command. Random name/skin assignment rejects scenes containing nested elements. Skin prefetch uses two daemon workers and a bounded 256-entry queue; overflow requests are deferred without blocking the server thread. Low-lag mode only reduces collision and fake-player bookkeeping costs; it does not guarantee smooth playback with hundreds or thousands of visible actors.
 
 Install this JAR only on Fabric 1.21.11. It is not a Paper plugin. Build success does not replace in-game regression tests, including the 30-minute loop test and multi-actor performance benchmark.
