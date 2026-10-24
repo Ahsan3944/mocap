@@ -1,40 +1,39 @@
-# Motion Capture Mod 26.1 — Audit and Source Update Report
+# Motion Capture Mod 26.1 — Audit and Verification Report
 
-## Changes in this source pass
+## Features present in the published source
 
-### Stability and loop handling
-- Playback manager scheduling now uses an accumulator rather than comparing a floating-point timer to an integer tick counter. Playback speed is constrained to 0.05–20.0 and execution is bounded to 20 playback steps per server tick to prevent invalid settings from causing a runaway loop.
-- Unexpected runtime exceptions in a playback are logged and that playback is stopped/cleaned up rather than breaking the whole playback tick loop.
-- A looping actor is restored if the previous pass ended with death/removal, including fake-player respawn and profile packet refresh.
-- Existing cleanup fixes remain: resource stack entries pop in `finally`; recursive scenes are detected before cache use; partial scene starts are stopped; main entity cleanup uses the saved entity; scene parsing is transactional.
+### Stability, persistence, and playback
+- Playback scheduling uses a bounded accumulator; playback speed is restricted to 0.05–20.0, with a cap of 20 playback steps per server tick.
+- Runtime exceptions in a playback are logged and that playback is stopped/cleaned up, rather than escaping the playback manager's tick loop.
+- Looping playback attempts to restore a main actor that died or was removed, refreshes player-info for fake players, restores equipment overrides, and resets additional entities.
+- Recording/scene resource-stack cleanup uses `finally`; recursive scene references are checked before cache lookup; failed partial scene starts are stopped; the main entity cleanup uses the saved entity; scene parsing is transactional.
+- Scene save uses a temporary file and atomic replacement when supported. Scene files are capped at 5,000 direct elements; expanded nested scenes and active actor count are capped at 5,000.
+- Runtime `freeze`, `unfreeze`, and `end_freeze` commands are present. End-freeze propagates down nested scene trees and intentionally holds the final actor state until manually stopped.
+- Collision-light playback now sets the Minecraft 26.1 `Entity.noPhysics` field and toggles fake-player static bookkeeping for both the primary actor and any visual ghost. This reduces collision physics only; it does not remove packet or client-rendering costs.
 
-### Scene authoring and persistence
-- Random unique player names are written to scene element modifiers. They remain fixed on later playback/restart; randomization only occurs when the command is run again. Individual names remain editable through the existing `player_name set` modifier.
-- Random skin profile assignment is persisted and queues profile prefetch in a two-thread daemon pool. If prefetch is incomplete, existing playback code may still perform a synchronous lookup; large scenes should wait briefly before playback.
-- Formation builder adds a centered X/Z grid with 1,000 additions per command and 5,000 scene elements maximum.
-- Scene pattern-add now builds the additions in memory and writes once instead of repeatedly loading/saving the same scene for each match. Added `COMMON_LEFTMOST` as a scene placement anchor while keeping source scenes intact when copied. Expanded nested scenes are capped at 5,000 actors per scene tree, with a 5,000 active-actor server cap to avoid runaway nested expansion.
-- Scene save uses a temporary file and atomic replacement where supported. JSON and legacy parsing reject scenes over the element cap.
+### Scene authoring
+- Random unique names and random skin profile names are assigned to direct recording elements and are saved in scene modifier data. Replaying the scene does not reroll names/skins. The individual `player_name set` modifier remains available for later editing.
+- Random name/skin assignment currently rejects scenes whose direct elements include nested scenes, because one parent element may expand to multiple actors. If fewer names are provided than direct elements, the remaining elements are unchanged.
+- Skin profile prefetch uses a bounded two-thread daemon pool. If a profile is invalid, unavailable, or rate-limited, successful skin resolution is not guaranteed; test the fallback in a live server before relying on a large scene.
+- Formation builder creates a centered X/Z grid with command and scene caps. Scene copy leaves the source intact. `COMMON_LEFTMOST` is available as a placement anchor. Nested scenes preserve their modifiers and receive cleanup/freeze/end-freeze/equipment/name-tag/low-lag propagation.
+- Persistent equipment presets store armor and main/offhand slots, intentionally excluding the hotbar. They can be applied to a playback tree, a direct scene element, or randomized independently per actor. Overrides are reapplied after recorded equipment actions.
+- Name-tag visibility commands batch and synchronize visibility overrides for living playback entities to connected clients using the matching Mocap protocol.
+- Packet string encoding uses UTF-8 byte lengths, and packet input lengths have bounds.
 
-### Equipment, name tags, and performance controls
-- Added persistent grouped equipment presets, storing armor slots and main/offhand only; hotbar is intentionally excluded.
-- A preset can be applied to one playback or recursively to all recording actors in a scene tree. Scene randomization chooses a preset independently for each actor, and the override is reapplied after recorded equipment actions.
-- Added a versioned packet to hide/show name tags for living actors in a playback tree; state is synchronized to connected Mocap clients and cleared when actors stop.
-- Added collision-light/static playback mode using no-physics behavior and skipping fake-player attack-strength bookkeeping while retaining death cleanup. This may change combat/damage timing and does not eliminate network or client rendering costs.
-- Packet string encoding now uses UTF-8 byte length and packet reads enforce length bounds.
+## Build verification
 
-### Build packaging
-- Removed the extra Foojay resolver settings plugin dependency.
-- Added a `universalJar` task that merges the Fabric and NeoForge artifacts into one archive with both metadata files and entrypoints. Both underlying loader builds must succeed first.
+- Target platform is Minecraft 26.1 with Java 25.
+- GitHub Actions builds the Fabric and NeoForge projects separately, validates each JAR archive, verifies each loader descriptor and entrypoint class are present, uploads the artifacts, and creates a prerelease only on success.
+- Release page: https://github.com/Ahsan3944/mocap/releases
+- These checks verify compilation and packaging. They do **not** prove every feature is correct in a live Minecraft client/server.
+- The combined `universalJar` Gradle task exists but is not the installable artifact validated by the current release workflow. Use the JAR matching your loader.
 
-## Verification performed
-- English language JSON parses successfully.
-- Source delimiter checks passed for the newly changed Java files.
-- The provided Gradle 9.2.1 distribution launches from its extracted path. The `universalJar` task structure was tested with dummy Fabric/NeoForge archives and successfully merged both metadata files; actual project artifacts remain unbuilt.
-- `universalJar --offline` fails before compilation because the Fabric Loom plugin is not cached. External DNS resolution to Gradle/Maven hosts is unavailable. The active JDK is Java 21; the supplied Java 25 distribution is Windows-only.
+## Outstanding tests before calling the mod production-verified
 
-## Not verified
-- No Java compilation completed.
-- No Fabric or NeoForge JAR was built.
-- No Minecraft client/server test, 30-minute loop test, or actor-count performance benchmark was run.
-- The original reported long-loop failure has not been reproduced. Scheduler and actor-death loop hardening are source-level mitigations, not proof of a complete fix.
-- The universal JAR packaging approach needs installation tests on both loaders.
+1. Install Fabric JAR on Fabric 26.1 and NeoForge JAR on NeoForge 26.1 separately; confirm startup, mixins, and entrypoints.
+2. Test stop/stop-all, freeze/unfreeze, end-freeze, name-tag hide/show, collision-light mode, and equipment overrides on both loaders.
+3. Play 10-second, 30-second, and 60-second recordings on loop for 30 minutes; repeat with recordings that kill/remove the actor and with nested scenes.
+4. Restart the server and confirm random assigned names/skins remain fixed; edit one actor's name; test invalid/unavailable skin profiles and rate limiting.
+5. Save/load equipment presets across restart; verify armor, both hands, empty slots, enchanted/custom-component items, nested scenes, and recorded equipment actions.
+6. Exercise malformed/legacy scenes, recursive scene references, partial-load cleanup, atomic-save fallback, and limits around 5,000 elements/actors.
+7. Benchmark 50, 100, 250, 500 and 1,000 actors with observing clients, measuring server MSPT, CPU, memory, packet volume, and client FPS. Do not interpret the 5,000 actor safety cap as a performance guarantee.
