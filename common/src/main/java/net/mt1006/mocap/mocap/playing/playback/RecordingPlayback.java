@@ -247,7 +247,14 @@ public class RecordingPlayback extends Playback
 	@Override public void setLowLagMode(boolean enabled)
 	{
 		lowLagMode = enabled;
+		// Minecraft 26.1 exposes noPhysics as an Entity field (the old setter no longer exists).
+		ctx.getMainEntity().noPhysics = enabled;
 		if (ctx.getMainEntity() instanceof FakePlayer fakePlayer) { fakePlayer.setStaticMode(enabled); }
+		if (ctx.getDummyPlayer() instanceof FakePlayer fakePlayer)
+		{
+			fakePlayer.noPhysics = enabled;
+			fakePlayer.setStaticMode(enabled);
+		}
 	}
 
 	private void tickInitialActions()
@@ -331,9 +338,12 @@ public class RecordingPlayback extends Playback
 	@Override protected void loop()
 	{
 		ctx.resetMainEntityForLoop();
-		if (lowLagMode)
+		ctx.getMainEntity().noPhysics = lowLagMode;
+		if (ctx.getMainEntity() instanceof FakePlayer fakePlayer) { fakePlayer.setStaticMode(lowLagMode); }
+		if (ctx.getDummyPlayer() instanceof FakePlayer fakePlayer)
 		{
-			if (ctx.getMainEntity() instanceof FakePlayer fakePlayer) { fakePlayer.setStaticMode(true); }
+			fakePlayer.noPhysics = lowLagMode;
+			fakePlayer.setStaticMode(lowLagMode);
 		}
 		applyEquipmentOverride();
 		boolean delayedStart = (modifiers.getTimeModifiers().getStartDelay().ticks != 0);
