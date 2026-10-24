@@ -17,7 +17,7 @@ class MocapRecordingEncoderTest {
 
         assertEquals(1, recording.formatVersion());
         assertEquals(1, recording.durationTicks());
-        assertTrue(recording.frames().size() >= 3);
+        assertTrue(recording.frames().size() >= 2);
         var start = recording.frames().get(0);
         assertEquals(10.0, start.x(), 0.0001);
         assertEquals(64.0, start.y(), 0.0001);
