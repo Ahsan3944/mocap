@@ -58,22 +58,38 @@ The upstream syntax supports a full modifier tree and has further optional `add_
 - `/mocap playback freeze <id>`, `unfreeze <id>`, `end-freeze <id>`
 - `/mocap playback low-lag <id> <on|off>`
 - `/mocap playback nametags <id> <hide|show>`
-- `/mocap customize names <scene> <comma-separated-names|auto>`
-- `/mocap customize skins <scene> <comma-separated-profile-names|auto>`
+- `/mocap names|skins groups`, `subgroups <group>`, `list <group> [<subgroup>]`
+- `/mocap names|skins save <group> <subgroup> <comma,separated,official,names>` (replace that subgroup)
+- `/mocap names|skins add <group> <subgroup> <comma,separated,official,names>` (append new unique names)
+- `/mocap names|skins import <group> <subgroup> <file.txt>` (replace from UTF-8 file)
+- `/mocap names|skins import-add <group> <subgroup> <file.txt>` (append from UTF-8 file)
+- `/mocap names|skins remove <group> <subgroup> <entry-id-or-exact-name>`
+- `/mocap names|skins delete <group> <subgroup>`
+- `/mocap customize names <scene> <group> auto`
+- `/mocap customize skins <scene> <group> auto`
+- `/mocap customize names <scene> <group> <subgroup:subgroup-name> auto`
+- `/mocap customize skins <scene> <group> <subgroup:subgroup-name> auto`
 - `/mocap customize name <scene> <element-index[-name]> <player-name>`
 - `/mocap customize equipment save <group-name> <preset-name>`
 - `/mocap customize equipment list [<group-name>]`
 - `/mocap customize equipment apply <playback-id> <group-name> <preset-name>`
 - `/mocap customize equipment apply-element <playback-id> <actor-index> <group-name> <preset-name>`
-- `/mocap customize equipment randomize <playback-id> <group-name>`
+- `/mocap customize equipment remove <playback-id>` (remove armor from every actor)
+- `/mocap customize equipment remove-element <playback-id> <actor-index>`
+- `/mocap customize equipment mix <playback-id> <group-name> <preset-1> <preset-2> [<preset-3> ...]`
+- `/mocap customize equipment randomize <playback-id> <group-name>` (choose randomly from every set in the group)
 - `/mocap formation add <scene-name> <recording-name> <rows:1-1000> <columns:1-1000> <spacing-blocks:0.5-128>`
 - `/mocap settings list [<recording|playback|advanced>]`
 - `/mocap settings <group> <setting>` to inspect default/current value and Paper support status
 - `/mocap settings <group> <setting> <value>` to persist one of the supported Paper settings
 
-Equipment autocomplete is group-scoped: after the group is selected, only presets in that group are suggested. `apply-element` suggests one-based actor indexes from the selected active playback. If no valid group, preset, actor index or playback ID exists, the completion layer shows an explanatory bracketed hint. Names/skins accept `auto`, which builds a saved pool from recorded player profile names, scene name/skin assignments and online players; chosen assignments are persisted in scene JSON instead of rerolled during playback.
+Name/skin libraries are stored under `plugins/MocapPaper/profile-libraries/names/<group>/<subgroup>.yml` and `.../skins/<group>/<subgroup>.yml`. Each subgroup supports up to 3,000 unique official Mojang profile names. IDs are stable and subgroup-qualified when listing a whole group; removing an entry does not renumber others. `save` replaces one subgroup, `add` appends new unique values, and `remove` accepts an entry ID or exact profile name. For large lists, place a UTF-8 text file under `plugins/MocapPaper/profile-libraries/imports/`; the file may be comma-separated or one profile per line, with a 512 KiB size limit.
 
-Formation meanings: `rows` runs along the Z axis, `columns` along X, and `spacing-blocks` is the distance between actors. Rows × columns cannot exceed 1,000 actor additions per call and a scene cannot exceed 5,000 elements.
+After choosing a library group in `/mocap customize names|skins <scene> <group>`, `auto` is the first TAB suggestion. It randomly assigns from all saved subgroups in that group; a labeled `subgroup:<name>` scope can restrict the pool. Direct comma-separated official names remain available. Random selection is performed independently for each scene element, so short pools can repeat across large formations, and the resulting assignments are stored in scene JSON rather than re-rolled during playback. Official name and skin list entries are validated as 1–16-character Mojang profile names.
+
+Equipment autocomplete is group-scoped: after the group is selected, only presets in that group are suggested. `apply-element` and `remove-element` suggest one-based actor indexes from the selected active playback. `remove`/ `remove-element` clear only the four armor slots, leaving hands untouched. `mix` takes at least two selected preset names from one group, randomly assigns one whole armor set per actor, and preserves the current held-item state; `randomize` chooses from every armor set in a group. Full `apply` still applies a complete equipment preset.
+
+Formation meanings: `rows` run behind the source character and `columns` grow to the character's right, relative to the saved recording's starting yaw. The original source actor stays at zero offset at row 1/column 1 instead of being centered. Rows × columns cannot exceed 1,000 actor additions per call and a scene cannot exceed 5,000 elements.
 
 Name-tag commands retain the ID-first syntax `/mocap playback nametags <playback-id> <hide|show>`; clearer action-first shortcut: `/mocap playback nametags <hide|show> <playback-id>`. A playback ID is the first number shown by `/mocap playback list`.
 
