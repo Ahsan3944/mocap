@@ -1249,7 +1249,9 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.WHITE + "/mocap customize equipment <apply|apply-element|remove|remove-element|mix|randomize> ...");
         sender.sendMessage(ChatColor.GRAY + "  remove clears armor only. mix/randomize assign selected saved armor sets randomly across a playback.");
         sender.sendMessage(ChatColor.GRAY + "  scenes modify is the upstream per-element modifier tree; customize is the UltraOP shortcut for names/skins/equipment.");
-        sender.sendMessage(ChatColor.WHITE + "/mocap formation add <scene-name> <recording-name> <rows:1-1000> <columns:1-1000> <spacing-blocks:0.5-128>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap formation add <scene> <recording> <rows> <columns> <column-gap> <row-gap>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap formation tool | /mocap paste <recording|.scene> [loop]");
+        sender.sendMessage(ChatColor.WHITE + "/mocap paste <recording|.scene> <x> <y> <z> [loop]");
         sender.sendMessage(ChatColor.GRAY + "  The source character stays at row 1/column 1; columns grow right and rows grow behind relative to recorded yaw.");
         sender.sendMessage(ChatColor.WHITE + "/mocap copy scene <source> <target>");
         sender.sendMessage(ChatColor.WHITE + "/mocap settings <recording|playback|advanced> [<setting> [<value>]]");
