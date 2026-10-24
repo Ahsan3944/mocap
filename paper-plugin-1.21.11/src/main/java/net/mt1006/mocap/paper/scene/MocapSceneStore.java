@@ -120,16 +120,15 @@ public final class MocapSceneStore {
                     // An explicit modifier on this scene element overrides inherited context.
                     // Otherwise carry the parent override through every nested scene level.
                     String elementPlayerName = getString(el, "player_name", null);
-                    String childPlayerName = firstNonBlank(elementPlayerName, playerName);
+                    // Keep an inherited parent override above a child scene's own element name;
+                    // otherwise a nested child would shadow the parent's explicit override.
+                    // Direct element overrides still take precedence over an inherited value.
+                    String childPlayerName = childName.startsWith(".")
+                            ? firstNonBlank(playerName, elementPlayerName)
+                            : firstNonBlank(elementPlayerName, playerName);
                     String childSkin = skinProfileFrom(el.get("player_skin"));
+                    // Explicit skin override on this element wins; otherwise inherit parent context.
                     if (childSkin == null) childSkin = skinProfile;
-                    // When a parent element references a nested scene, preserve its actor/profile override
-                    // rather than resetting to the name stored in the child scene. A nested scene may
-                    // contain many actors, so this is an inherited default; explicit child modifiers still win.
-                    if (childName.startsWith(".")) {
-                        if (elementPlayerName != null && !elementPlayerName.isBlank()) childPlayerName = elementPlayerName;
-                        if (getString(el, "player_skin", "").isBlank() && childSkin == null) childSkin = skinProfile;
-                    }
                     int childDelayTicks = inheritedDelayTicks + delayTicks(el.get("time"));
                     if (childDelayTicks > MocapRecordingParser.MAX_TICKS) throw new IOException("Scene delay exceeds the 10-hour safety limit.");
                     expandInto(childName, childTransforms, childPlayerName, childSkin, childDelayTicks, activeScenes, result, depth + 1);
