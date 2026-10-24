@@ -52,7 +52,12 @@ public final class PaperRecordingManager {
         if (activeByPlayer.containsKey(player.getUniqueId())) {
             throw new IOException(player.getName() + " is already being recorded (ID " + activeByPlayer.get(player.getUniqueId()) + ").");
         }
-        if (instantSaveName != null && !instantSaveName.isBlank()) validateName(instantSaveName);
+        if (instantSaveName != null && !instantSaveName.isBlank()) {
+            String safe = validateName(instantSaveName);
+            if (Files.exists(recordingsDirectory.resolve(safe + ".mcmocap_rec"))) {
+                throw new IOException("Recording already exists: " + safe + ". Choose a different instant-save name.");
+            }
+        }
         String id = Integer.toString(nextId++);
         if (nextId < 1) nextId = 1;
         Session session = new Session(id, player, instantSaveName);
@@ -123,13 +128,10 @@ public final class PaperRecordingManager {
         if (!active.containsKey(session.id)) throw new IOException("Recording " + session.id + " is not active.");
         finish(session);
         if (session.instantSaveName != null && !session.instantSaveName.isBlank()) {
-            String fileName = session.instantSaveName;
-            if (active.values().stream().anyMatch(s -> s.instantSaveName != null && s.instantSaveName.equals(fileName))) {
-                fileName = fileName + "_" + session.playerName;
+            if (!stopped.containsKey(session.id)) {
+                return "Stopped and saved recording ID " + session.id + " as " + session.instantSaveName + ".";
             }
-            saveSession(session, fileName);
-            stopped.remove(session.id);
-            return "Stopped and saved recording ID " + session.id + " as " + fileName + ".";
+            return "Stopped recording ID " + session.id + ", but instant-save failed. Save manually with /mocap recording save <name> " + session.id + ".";
         }
         return "Stopped recording " + session.playerName + " (ID " + session.id + "). Save it with /mocap recording save <name> " + session.id + ".";
     }
