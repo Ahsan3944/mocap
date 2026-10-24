@@ -59,7 +59,7 @@ public class RecordingFiles
 		return true;
 	}
 
-	public static boolean info(CommandInfo out, @Nullable RecordingFile file)
+	public static boolean info(CommandInfo out, @Nullable RecordingFile file) //TODO: rename out
 	{
 		MocapRecordingFile.Info info = RecordingFile.Info.load(out, file);
 		if (file == null || info == null) { return false; }
@@ -69,7 +69,7 @@ public class RecordingFiles
 		if (!Files.printVersionInfo(out, VERSION, info.version(), info.experimental(), info.experimentalSubversion())) { return true; }
 
 		out.sendSuccess("recordings.info.length", String.format(Locale.ROOT, "%.2f", info.lengthInTicks() / 20.0), info.lengthInTicks());
-		out.sendSuccess("recordings.info.size", String.format(Locale.ROOT, "%.2f", info.sizeInBytes() / 1024.0), info.sizeInActionCount());
+		out.sendSuccess("recordings.info.size", String.format(Locale.ROOT, "%.2f", info.sizeInBytes() / 1024.0), info.sizeInOps());
 
 		printPosInfo(out, info);
 
@@ -82,7 +82,7 @@ public class RecordingFiles
 		return true;
 	}
 
-	private static void printPosInfo(CommandInfo out, MocapRecordingFile.Info info)
+	private static void printPosInfo(CommandInfo out, MocapRecordingFile.Info info) //TODO: rename out
 	{
 		Identifier dimensionId = info.assignedDimensionId();
 		boolean anotherDimension = (dimensionId != null && out.getLevel().dimension() != ResourceKey.create(Registries.DIMENSION, dimensionId)
@@ -310,6 +310,7 @@ public class RecordingFiles
 		private final byte[] recording;
 		private boolean legacyString;
 		public int offset = 0;
+		public boolean convertStrings = false; //TODO: [CONVERTER] remove
 
 		public FileReader(byte[] recording, boolean legacyString)
 		{
@@ -368,6 +369,8 @@ public class RecordingFiles
 
 		@Override public String readString()
 		{
+			if (convertStrings && !legacyString) { return readAlphaString(); } //TODO: [CONVERTER] remove
+
 			int len = legacyString ? readInt() : readPackedInt();
 			String str = new String(recording, offset, len, StandardCharsets.UTF_8);
 			offset += len;
@@ -377,6 +380,25 @@ public class RecordingFiles
 		@Override public UUID readUUID()
 		{
 			return new UUID(readLong(), readLong());
+		}
+
+		//TODO: [CONVERTER] remove
+		private String readAlphaString()
+		{
+			int termPos = -1;
+			for (int i = offset; i < recording.length; i++)
+			{
+				if (recording[i] == 0)
+				{
+					termPos = i;
+					break;
+				}
+			}
+
+			int len = termPos - offset;
+			String str = new String(recording, offset, len, StandardCharsets.UTF_8);
+			offset += len + 1;
+			return str;
 		}
 
 		@Override public Vec3 readVec3()

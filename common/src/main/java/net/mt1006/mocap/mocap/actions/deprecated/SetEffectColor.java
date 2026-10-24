@@ -23,7 +23,9 @@ public class SetEffectColor implements MocapAction
 
 	@Override public void write(Writer writer, MocapRecordingData data)
 	{
-		throw new RuntimeException("Trying to save deprecated action!");
+		//TODO: [CONVERTER] replace with exception
+		writer.addInt(color);
+		writer.addBoolean(ambience);
 	}
 
 	@Override public Result execute(MocapActionContext ctx)

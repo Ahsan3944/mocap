@@ -95,19 +95,3 @@ subprojects
 
 	project.sourceSets.main.java.srcDirs += ["src/main/generated"]
 }
-
-
-// Builds one installable archive containing both loader descriptors and both loader entrypoints.
-// Fabric and NeoForge each load only their own metadata; common classes are included once.
-tasks.register("universalJar", Jar)
-{
-	archiveBaseName.set("${mod_jar_name}-UNIVERSAL")
-	archiveVersion.set("${version}+mc${minecraft_version}")
-	archiveExtension.set("jar")
-	destinationDirectory.set(layout.buildDirectory.dir("libs"))
-	dependsOn(":fabric:jar", ":neoforge:jar")
-	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-	from({ zipTree(project(":fabric").tasks.named("jar").get().archiveFile.get().asFile) })
-	from({ zipTree(project(":neoforge").tasks.named("jar").get().archiveFile.get().asFile) })
-	exclude("META-INF/MANIFEST.MF")
-}

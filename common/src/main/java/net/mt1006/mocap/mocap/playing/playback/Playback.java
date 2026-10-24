@@ -119,7 +119,7 @@ public abstract class Playback
 
 		for (RecordingContext ctx : RecordingManager.bySourcePlayer(owner))
 		{
-			if (ctx.getState() == RecordingContext.State.RECORDING) { return true; }
+			if (ctx.state == RecordingContext.State.RECORDING) { return true; }
 		}
 		return false;
 	}

@@ -13,10 +13,10 @@ public class PacketHandler
 {
 	public static void register()
 	{
-		PayloadTypeRegistry.serverboundPlay().register(MocapPacketC2S.TYPE, MocapPacketC2S.CODEC);
+		PayloadTypeRegistry.playC2S().register(MocapPacketC2S.TYPE, MocapPacketC2S.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(MocapPacketC2S.TYPE, PacketHandler::serverReceiver);
 
-		PayloadTypeRegistry.clientboundPlay().register(MocapPacketS2C.TYPE, MocapPacketS2C.CODEC);
+		PayloadTypeRegistry.playS2C().register(MocapPacketS2C.TYPE, MocapPacketS2C.CODEC);
 		if (!MocapMod.isDedicatedServer)
 		{
 			ClientPlayNetworking.registerGlobalReceiver(MocapPacketS2C.TYPE, PacketHandler::clientReceiver);

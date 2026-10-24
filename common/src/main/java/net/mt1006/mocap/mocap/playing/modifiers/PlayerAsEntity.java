@@ -21,7 +21,7 @@ public class PlayerAsEntity implements MocapPlayerAsEntity
 {
 	public static final PlayerAsEntity DISABLED = new PlayerAsEntity(null, null);
 	private final @Nullable String entityId;
-	private final @Nullable String entityNbt;
+	public final @Nullable String entityNbt;
 	private final @Nullable EntityType<?> entityType;
 	private final @Nullable CompoundTag compoundTag;
 

@@ -1,6 +1,5 @@
 package net.mt1006.mocap.api.v1.controller.config;
 
-import net.mt1006.mocap.api.v1.modifiers.MocapEntityFilter;
 import net.mt1006.mocap.mocap.settings.RecordingConfig;
 import org.jetbrains.annotations.Nullable;
 
@@ -17,10 +16,6 @@ public interface MocapRecordingConfig
 	}
 
 	MocapRecordingConfig copy();
-
-	MocapEntityFilter getTrackEntities();
-
-	void setTrackEntities(@Nullable MocapEntityFilter val);
 
 	boolean getPreventTrackingPlayedEntities();
 

@@ -98,7 +98,6 @@ public class CommandUtils
 				then(Commands.literal("scene_center").
 					then(Commands.literal("common_first").executes(command)).
 					then(Commands.literal("common_last").executes(command)).
-					then(Commands.literal("common_leftmost").executes(command)).
 					then(Commands.literal("common_specific").
 						then(Commands.argument("specific_scene_element", StringArgumentType.string()).executes(command))). //TODO: add suggestions
 					then(Commands.literal("individual").executes(command))).

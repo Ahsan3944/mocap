@@ -10,8 +10,8 @@ import net.neoforged.neoforge.event.ServerChatEvent;
 public class ChatNeoForgeEvent
 {
 	@SubscribeEvent
-	public static void onChatMessage(ServerChatEvent event)
+	public static void onChatMessage(ServerChatEvent chatEvent)
 	{
-		ChatEvent.onChatMessage(event.getMessage(), event.getPlayer());
+		ChatEvent.onChatMessage(chatEvent.getMessage(), chatEvent.getPlayer());
 	}
 }

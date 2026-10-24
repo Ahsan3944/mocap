@@ -31,9 +31,6 @@ import java.util.concurrent.Executors;
 
 public class ProfileUtils
 {
-	private static final MinecraftClient client = new MinecraftClient(null, Proxy.NO_PROXY);
-	private static final Cache<String, Profile> cache = new Cache<>("profiles - case sensitive", 4096);
-	private static final Cache<String, Profile> cacheInsensitive = new Cache<>("profiles - case insensitive", 4096);
 	private static final Set<String> prefetchInFlight = ConcurrentHashMap.newKeySet();
 	private static final ExecutorService prefetchExecutor = Executors.newFixedThreadPool(2, runnable ->
 	{
@@ -41,6 +38,9 @@ public class ProfileUtils
 		thread.setDaemon(true);
 		return thread;
 	});
+	private static final MinecraftClient client = new MinecraftClient(null, Proxy.NO_PROXY);
+	private static final Cache<String, Profile> cache = new Cache<>("profiles - case sensitive", 4096);
+	private static final Cache<String, Profile> cacheInsensitive = new Cache<>("profiles - case insensitive", 4096);
 
 	public static Profile getProfile(MinecraftServer server, MocapPlayerNameHandling mode, String name, boolean withSkin)
 	{
@@ -73,7 +73,6 @@ public class ProfileUtils
 		return mode == MocapPlayerNameHandling.IGNORE_CASING ? newProfile.withName(name) : newProfile;
 	}
 
-	/** Fetches a profile and skin off the server tick thread. Playback can use the cache if it finishes first. */
 	public static void prefetchProfileAsync(MinecraftServer server, String name)
 	{
 		if (name == null || !StringUtil.isValidPlayerName(name)) { return; }

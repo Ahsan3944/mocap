@@ -37,7 +37,7 @@ public class PlaybackDataManager
 		try
 		{
 			RecordingData recording = new RecordingData();
-			if (!recording.load(out, file)) { return sendFailureWithPath(out); }
+			if (!recording.load(out, file, false)) { return sendFailureWithPath(out); }
 			recordingMap.put(file, recording);
 			return true;
 		}

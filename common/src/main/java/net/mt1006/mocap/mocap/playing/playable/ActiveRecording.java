@@ -4,10 +4,11 @@ import net.mt1006.mocap.api.v1.controller.MocapPlaybackRoot;
 import net.mt1006.mocap.api.v1.controller.config.MocapPlaybackConfig;
 import net.mt1006.mocap.api.v1.controller.playable.MocapActiveRecording;
 import net.mt1006.mocap.api.v1.controller.playable.MocapRecordingFile;
-import net.mt1006.mocap.api.v1.extension.MocapRecordingContext;
+import net.mt1006.mocap.api.v1.extension.MocapActiveRecordingActions;
 import net.mt1006.mocap.api.v1.io.CommandInfo;
 import net.mt1006.mocap.api.v1.io.CommandOutput;
 import net.mt1006.mocap.api.v1.modifiers.MocapModifiers;
+import net.mt1006.mocap.mocap.files.RecordingData;
 import net.mt1006.mocap.mocap.playing.PlaybackDataManager;
 import net.mt1006.mocap.mocap.playing.PlaybackManager;
 import net.mt1006.mocap.mocap.playing.playback.Playback;
@@ -65,14 +66,19 @@ public class ActiveRecording extends Playable implements MocapActiveRecording
 		return success ? RecordingFile.get(out, name) : null;
 	}
 
-	@Override public MocapRecordingContext getContext()
+	@Override public MocapActiveRecordingActions getActions()
 	{
 		return ctx;
 	}
 
-	@Override public boolean accessible()
+	@Override public boolean isValid()
 	{
-		return !ctx.getState().removed;
+		return !ctx.isRemoved();
+	}
+
+	@Override public RecordingData getRecordingData()
+	{
+		return ctx.data;
 	}
 
 	@Override public @Nullable MocapPlaybackRoot startPlayback(CommandInfo info, MocapModifiers modifiers, MocapPlaybackConfig config, boolean isHidden)
@@ -82,9 +88,8 @@ public class ActiveRecording extends Playable implements MocapActiveRecording
 			modifiers = modifiers.withPlayerName(ctx.recordedPlayer.getName().getString());
 		}
 
-		if (!PlaybackManager.canStartActorCount(info, 1)) { return null; }
 		RecordingPlayback playback = RecordingPlayback.start(info, true, new PlaybackDataManager(), ctx.data, config, modifiers, null);
-		return playback != null ? PlaybackManager.onStart(this, playback, isHidden) : null;
+		return playback != null ? PlaybackManager.addPlayback(this, playback, isHidden) : null;
 	}
 
 	@Override public @Nullable Playback startAsSubscene(CommandInfo info, MocapModifiers modifiers, MocapPlaybackConfig config,

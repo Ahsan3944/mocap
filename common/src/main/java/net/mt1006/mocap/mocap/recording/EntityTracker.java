@@ -3,8 +3,7 @@ package net.mt1006.mocap.mocap.recording;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
-import net.mt1006.mocap.api.v1.extension.MocapRecordingContext;
-import net.mt1006.mocap.api.v1.modifiers.MocapEntityFilter;
+import net.mt1006.mocap.api.v1.extension.MocapActiveRecordingActions;
 import net.mt1006.mocap.mixin.fields.LevelFields;
 import net.mt1006.mocap.mocap.actions.EntityUpdate;
 import net.mt1006.mocap.mocap.playing.PlaybackManager;
@@ -49,17 +48,16 @@ public class EntityTracker
 		double entityTrackingDist = ctx.config.getEntityTrackingDistance();
 		boolean limitDistance = entityTrackingDist >= 0.0;
 		double maxDistanceSqr = entityTrackingDist * entityTrackingDist;
-		MocapEntityFilter filter = ctx.config.getTrackEntities();
 
 		for (Entity entity : ((LevelFields)ctx.recordedPlayer.level()).callGetEntities().getAll())
 		{
 			if ((limitDistance && ctx.recordedPlayer.distanceToSqr(entity) > maxDistanceSqr) || entity instanceof Player
-					|| (ctx.config.getPreventTrackingPlayedEntities() && entity.entityTags().contains(PlaybackManager.MOCAP_ENTITY_TAG)))
+					|| (ctx.config.getPreventTrackingPlayedEntities() && entity.getTags().contains(PlaybackManager.MOCAP_ENTITY_TAG)))
 			{
 				continue;
 			}
 
-			if (!filter.isAllowed(entity)) { continue; }
+			if (!ctx.entityFilter.isAllowed(entity)) { continue; }
 
 			TrackedEntity trackedEntity = map.get(entity);
 			if (trackedEntity == null)
@@ -122,7 +120,7 @@ public class EntityTracker
 		toRemove.forEach(map::remove);
 	}
 
-	public static class TrackedEntity implements MocapRecordingContext.TrackedEntity
+	public static class TrackedEntity implements MocapActiveRecordingActions.TrackedEntity
 	{
 		private final RecordingContext ctx;
 		private final int id;
@@ -156,7 +154,7 @@ public class EntityTracker
 			}
 		}
 
-		@Override public MocapRecordingContext getParent()
+		@Override public MocapActiveRecordingActions getParent()
 		{
 			return ctx;
 		}

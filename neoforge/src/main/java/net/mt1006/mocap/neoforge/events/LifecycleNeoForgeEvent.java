@@ -12,19 +12,19 @@ import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 public class LifecycleNeoForgeEvent
 {
 	@SubscribeEvent
-	public static void onServerStart(ServerStartedEvent event)
+	public static void onServerStart(ServerStartedEvent startedEvent)
 	{
-		LifecycleEvent.onServerStart(event.getServer());
+		LifecycleEvent.onServerStart(startedEvent.getServer());
 	}
 
 	@SubscribeEvent
-	public static void onServerStop(ServerStoppingEvent event)
+	public static void onServerStop(ServerStoppingEvent stoppingEvent)
 	{
-		LifecycleEvent.onServerStop(event.getServer());
+		LifecycleEvent.onServerStop();
 	}
 
 	@SubscribeEvent
-	public static void onClientDisconnect(ClientPlayerNetworkEvent.LoggingOut event)
+	public static void onClientDisconnect(ClientPlayerNetworkEvent.LoggingOut loggingOutEvent)
 	{
 		LifecycleEvent.onClientDisconnect();
 	}

@@ -38,11 +38,6 @@ public class PreExecuteContext implements MocapBasicActionContext
 		return entity;
 	}
 
-	@Override public Entity getMainEntity()
-	{
-		return entity;
-	}
-
 	@Override public ServerLevel getLevel()
 	{
 		return level;

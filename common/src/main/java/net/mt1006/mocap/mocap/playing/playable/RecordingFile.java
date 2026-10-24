@@ -43,10 +43,9 @@ public class RecordingFile extends PlayableFile<MocapRecordingFile> implements M
 	{
 		PlaybackDataManager dataManager = new PlaybackDataManager();
 		if (!dataManager.loadRecording(info, this)) { return null; }
-		if (!PlaybackManager.canStartActorCount(info, 1)) { return null; }
 
 		RecordingPlayback playback = RecordingPlayback.start(info, true, dataManager, dataManager.getRecording(this), config, modifiers, null);
-		return playback != null ? PlaybackManager.onStart(this, playback, isHidden) : null;
+		return playback != null ? PlaybackManager.addPlayback(this, playback, isHidden) : null;
 	}
 
 	@Override public @Nullable Playback startAsSubscene(CommandInfo info, MocapModifiers modifiers, MocapPlaybackConfig config,
@@ -66,7 +65,7 @@ public class RecordingFile extends PlayableFile<MocapRecordingFile> implements M
 			int experimentalSubversion,
 			long lengthInTicks,
 			long sizeInBytes,
-			long sizeInActionCount,
+			long sizeInOps,
 			Vec3 startPos,
 			@Nullable Identifier assignedDimensionId,
 			AssignedProfile assignedProfile,
@@ -75,7 +74,7 @@ public class RecordingFile extends PlayableFile<MocapRecordingFile> implements M
 		public static @Nullable Info load(CommandOutput out, @Nullable RecordingFile file)
 		{
 			RecordingData recording = new RecordingData();
-			if (!recording.load(out, file) && recording.version <= RecordingFiles.VERSION)
+			if (!recording.load(out, file, false) && recording.version <= RecordingFiles.VERSION)
 			{
 				out.sendFailure("recordings.info.failed");
 				return null;

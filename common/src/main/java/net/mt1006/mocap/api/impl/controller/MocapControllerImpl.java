@@ -7,7 +7,6 @@ import net.mt1006.mocap.api.v1.controller.MocapController;
 import net.mt1006.mocap.api.v1.controller.MocapPlaybackRoot;
 import net.mt1006.mocap.api.v1.controller.config.MocapRecordingConfig;
 import net.mt1006.mocap.api.v1.controller.playable.MocapActiveRecording;
-import net.mt1006.mocap.api.v1.controller.playable.MocapPlayable;
 import net.mt1006.mocap.api.v1.io.CommandInfo;
 import net.mt1006.mocap.command.io.APICommandInfo;
 import net.mt1006.mocap.mocap.playing.PlaybackManager;
@@ -40,11 +39,6 @@ public class MocapControllerImpl implements MocapController
 	{
 		if (level == commandInfo.getLevel()) { return commandInfo; }
 		return new APICommandInfo(level.getServer(), level, commandInfo.getSourceName());
-	}
-
-	@Override public @Nullable MocapPlayable getPlayable(String name)
-	{
-		return MocapPlayable.get(commandInfo, name);
 	}
 
 	@Override public @Nullable MocapPlaybackRoot findPlayback(String id)

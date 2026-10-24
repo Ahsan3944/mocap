@@ -120,11 +120,11 @@ public class ScenePlayback extends Playback
 		{
 			var recording = dataManager.getRecording(recordingFile);
 			if (recording == null) { return null; }
-			subsceneStartPos = recording.getStartPos();
+			subsceneStartPos = recording.startPos;
 		}
 		else if (playable instanceof MocapActiveRecording activeRecording)
 		{
-			subsceneStartPos = activeRecording.getContext().getRecordingData().getStartPos();
+			subsceneStartPos = activeRecording.getRecordingData().startPos;
 		}
 		else { return null; }
 		return subsceneStartPos != null ? element.getModifiers().getTransformations().calculateCenter(subsceneStartPos) : null;

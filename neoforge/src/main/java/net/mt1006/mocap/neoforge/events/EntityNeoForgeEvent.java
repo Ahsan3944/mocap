@@ -11,17 +11,17 @@ import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
 public class EntityNeoForgeEvent
 {
 	@SubscribeEvent
-	public static void onEntityHurt(LivingDamageEvent.Post event)
+	public static void onEntityHurt(LivingDamageEvent.Post damageEvent)
 	{
-		if (event.getNewDamage() != 0.0f || event.getBlockedDamage() == 0.0f)
+		if (damageEvent.getNewDamage() != 0.0f || damageEvent.getBlockedDamage() == 0.0f)
 		{
-			EntityEvent.onEntityHurt(event.getEntity());
+			EntityEvent.onEntityHurt(damageEvent.getEntity());
 		}
 	}
 
 	@SubscribeEvent
-	public static void onEntityDrop(LivingDropsEvent event)
+	public static void onEntityDrop(LivingDropsEvent dropsEvent)
 	{
-		if (EntityEvent.onEntityDrop(event.getEntity())) { event.setCanceled(true); }
+		if (EntityEvent.onEntityDrop(dropsEvent.getEntity())) { dropsEvent.setCanceled(true); }
 	}
 }

@@ -7,33 +7,32 @@ import net.minecraft.world.level.Level;
 import net.mt1006.mocap.api.v1.controller.config.MocapOnChangeDimension;
 import net.mt1006.mocap.api.v1.controller.config.MocapOnDeath;
 import net.mt1006.mocap.api.v1.controller.config.MocapRecordingConfig;
-import net.mt1006.mocap.api.v1.controller.playable.MocapActiveRecording;
-import net.mt1006.mocap.api.v1.events.MocapEvents;
-import net.mt1006.mocap.api.v1.extension.MocapRecordingContext;
+import net.mt1006.mocap.api.v1.extension.MocapActiveRecordingActions;
 import net.mt1006.mocap.api.v1.extension.actions.MocapAction;
 import net.mt1006.mocap.api.v1.extension.actions.MocapBlockAction;
 import net.mt1006.mocap.api.v1.io.CommandOutput;
 import net.mt1006.mocap.mocap.actions.*;
 import net.mt1006.mocap.mocap.files.RecordingData;
 import net.mt1006.mocap.mocap.files.RecordingFiles;
-import net.mt1006.mocap.mocap.playing.playable.ActiveRecording;
+import net.mt1006.mocap.mocap.playing.modifiers.EntityFilter;
 import net.mt1006.mocap.utils.Utils;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.util.Collection;
 
-public class RecordingContext implements MocapRecordingContext
+public class RecordingContext implements MocapActiveRecordingActions
 {
 	public final RecordingId id;
 	public ServerPlayer recordedPlayer;
 	public final RecordingSource source;
 	public final MocapRecordingConfig config;
 	public final RecordingData data = RecordingData.forWriting();
-	private State state = State.WAITING_FOR_ACTION;
+	public State state = State.WAITING_FOR_ACTION;
 	private @Nullable RecordedEntityState entityState = null;
 	private final PositionTracker positionTracker;
 	private final EntityTracker entityTracker = new EntityTracker(this);
+	public final EntityFilter entityFilter;
 	public final @Nullable String instantSave;
 	private int tick = 0, diedOnTick = 0;
 	private boolean died = false;
@@ -48,6 +47,7 @@ public class RecordingContext implements MocapRecordingContext
 		this.source = source;
 		this.config = config;
 		this.positionTracker = new PositionTracker(recordedPlayer, false, recordedPlayer.position());
+		this.entityFilter = EntityFilter.FOR_RECORDING;
 		this.instantSave = instantSave;
 		this.lastDimension = recordedPlayer.level().dimension();
 
@@ -60,20 +60,18 @@ public class RecordingContext implements MocapRecordingContext
 	public void start(boolean sendMessage)
 	{
 		entityState = null;
-		setState(State.RECORDING);
-		MocapEvents.RECORDING_START_NOW.invoker.onRecordingStartNow(ActiveRecording.get(this));
+		state = State.RECORDING;
 		if (sendMessage) { Utils.sendMessage(source.player, "recording.start.recording_started"); }
 	}
 
 	public void stop(CommandOutput out)
 	{
-		State newState = switch (state)
+		state = switch (state)
 		{
 			case WAITING_FOR_ACTION -> State.CANCELED;
 			case RECORDING, WAITING_FOR_DECISION -> State.WAITING_FOR_DECISION;
 			default -> State.UNDEFINED;
 		};
-		setState(newState);
 
 		if (state == State.WAITING_FOR_DECISION && instantSave != null)
 		{
@@ -85,13 +83,12 @@ public class RecordingContext implements MocapRecordingContext
 
 	public void discard()
 	{
-		State newState = switch (state)
+		state = switch (state)
 		{
 			case WAITING_FOR_ACTION -> State.CANCELED;
 			case WAITING_FOR_DECISION -> State.DISCARDED;
 			default -> State.UNDEFINED;
 		};
-		setState(newState);
 
 		if (state.removed) { RecordingManager.removeContext(this); }
 	}
@@ -101,11 +98,11 @@ public class RecordingContext implements MocapRecordingContext
 		if (state == State.WAITING_FOR_DECISION)
 		{
 			if (!RecordingFiles.save(CommandOutput.LOGS, recordingFile, name, data)) { return; }
-			setState(State.SAVED);
+			state = State.SAVED;
 		}
 		else
 		{
-			setState(State.UNDEFINED);
+			state = State.UNDEFINED;
 		}
 
 		if (state.removed) { RecordingManager.removeContext(this); }
@@ -212,23 +209,18 @@ public class RecordingContext implements MocapRecordingContext
 	private void selfStop(boolean requiresSafeDiscard)
 	{
 		this.requiresSafeDiscard = requiresSafeDiscard;
-		setState(State.WAITING_FOR_DECISION);
+		this.state = State.WAITING_FOR_DECISION;
 
 		RecordingManager.sendStopMessage((msg) -> Utils.sendMessage(source.player, msg), this, source.player);
 	}
 
 	public void splitRecording(ServerPlayer newPlayer)
 	{
-		setState(State.WAITING_FOR_DECISION);
+		state = State.WAITING_FOR_DECISION;
 		Utils.sendMessage(source.player, "recording.stop.split");
 
 		boolean success = (RecordingManager.start(newPlayer, source, config, null, true, false) != null);
 		if (!success) { Utils.sendMessage(source.player, "recording.stop.split.error"); }
-	}
-
-	@Override public MocapActiveRecording asActiveRecording()
-	{
-		return ActiveRecording.get(this);
 	}
 
 	@Override public void addAction(MocapAction action)
@@ -251,26 +243,6 @@ public class RecordingContext implements MocapRecordingContext
 	@Override public Collection<? extends TrackedEntity> getTrackedEntities()
 	{
 		return entityTracker.getAll();
-	}
-
-	@Override public @Nullable EntityTracker.TrackedEntity getTrackedEntity(Entity entity)
-	{
-		return entityTracker.get(entity);
-	}
-
-	@Override public State getState()
-	{
-		return state;
-	}
-
-	@Override public int getTick()
-	{
-		return tick;
-	}
-
-	@Override public RecordingData getRecordingData()
-	{
-		return data;
 	}
 
 	public void addTickAction()
@@ -298,10 +270,36 @@ public class RecordingContext implements MocapRecordingContext
 		}
 	}
 
-	private void setState(State state)
+	public @Nullable EntityTracker.TrackedEntity getTrackedEntity(Entity entity)
 	{
-		State prevState = this.state;
-		this.state = state;
-		MocapEvents.RECORDING_CHANGE_STATE.invoker.onRecordingChangeState(ActiveRecording.get(this), prevState);
+		return entityTracker.get(entity);
+	}
+
+	public int getTick()
+	{
+		return tick;
+	}
+
+	public boolean isRemoved()
+	{
+		return state.removed;
+	}
+
+	public enum State
+	{
+		WAITING_FOR_ACTION(false),
+		RECORDING(false),
+		WAITING_FOR_DECISION(false),
+		CANCELED(true),
+		DISCARDED(true),
+		SAVED(true),
+		UNDEFINED(true);
+
+		public final boolean removed;
+
+		State(boolean removed)
+		{
+			this.removed = removed;
+		}
 	}
 }

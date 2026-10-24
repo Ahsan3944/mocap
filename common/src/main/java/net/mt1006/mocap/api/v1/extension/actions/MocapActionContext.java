@@ -5,13 +5,14 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
-import net.mt1006.mocap.api.v1.modifiers.MocapEntityFilter;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.function.Supplier;
 
 public interface MocapActionContext extends MocapBasicActionContext
 {
+	Entity getMainEntity();
+
 	@Nullable ServerPlayer getDummyPlayer();
 
 	@Nullable ServerPlayer getRealOrDummyPlayer();
@@ -29,8 +30,6 @@ public interface MocapActionContext extends MocapBasicActionContext
 	Vec3 getPosition();
 
 	void changePosition(Vec3 newPos, float rotY, float rotX, boolean transformRot);
-
-	MocapEntityFilter getEntityFilter();
 
 	void addEntity(int id, Entity entity, Vec3 position);
 

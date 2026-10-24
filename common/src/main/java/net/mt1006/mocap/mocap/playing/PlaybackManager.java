@@ -4,7 +4,6 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import net.minecraft.server.level.ServerPlayer;
 import net.mt1006.mocap.MocapMod;
-import net.mt1006.mocap.api.v1.events.MocapEvents;
 import net.mt1006.mocap.api.v1.io.CommandInfo;
 import net.mt1006.mocap.api.v1.io.CommandOutput;
 import net.mt1006.mocap.api.v1.modifiers.MocapModifiers;
@@ -35,7 +34,7 @@ public class PlaybackManager
 	public static final int MAX_ACTIVE_ACTORS = 5000;
 	private static int nextPlaybackId = 0;
 
-	public static @Nullable PlaybackRoot onStart(Playable playable, Playback playback, boolean isHidden)
+	public static @Nullable PlaybackRoot addPlayback(Playable playable, Playback playback, boolean isHidden)
 	{
 		if (!canStartActorCount(CommandOutput.DUMMY, playback.getActorCount()))
 		{
@@ -47,7 +46,6 @@ public class PlaybackManager
 		PlaybackRoot playbackRoot = new PlaybackRoot(playback, getNextId(), playable.getName(), playback.config, isHidden);
 		playbacksByOwner.put(playback.owner != null ? playback.owner.getName().getString() : "", playbackRoot);
 
-		MocapEvents.PLAYBACK_START.invoker.onPlaybackStart(playbackRoot);
 		return playbackRoot;
 	}
 
@@ -279,13 +277,8 @@ public class PlaybackManager
 	{
 		for (PlaybackRoot playback : toRemove)
 		{
-			try { MocapEvents.PLAYBACK_END.invoker.onPlaybackEnd(playback); }
-			catch (RuntimeException e) { MocapMod.LOGGER.error("Playback end callback failed for {}", playback.getSuggestedId(), e); }
-			finally
-			{
-				ServerPlayer owner = playback.getOwner();
-				playbacksByOwner.remove(owner != null ? owner.getName().getString() : "", playback);
-			}
+			ServerPlayer owner = playback.getOwner();
+			playbacksByOwner.remove(owner != null ? owner.getName().getString() : "", playback);
 		}
 	}
 

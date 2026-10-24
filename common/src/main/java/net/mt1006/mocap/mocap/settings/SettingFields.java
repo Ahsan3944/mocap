@@ -14,7 +14,7 @@ import net.mt1006.mocap.api.v1.io.CommandInfo;
 import net.mt1006.mocap.command.CommandSuggestions;
 import net.mt1006.mocap.command.io.FullCommandInfo;
 import net.mt1006.mocap.mocap.files.Files;
-import net.mt1006.mocap.mocap.playing.modifiers.EntityFilter;
+import net.mt1006.mocap.mocap.playing.modifiers.EntityFilterInstance;
 import net.mt1006.mocap.utils.Utils;
 import org.jetbrains.annotations.Nullable;
 
@@ -25,6 +25,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Scanner;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 public class SettingFields
 {
@@ -45,9 +46,9 @@ public class SettingFields
 		return addField(name, new EnumField<>(name, val));
 	}
 
-	public EntityFilterField add(String name, EntityFilter val)
+	public EntityFilterField addFilterField(String name, String val, @Nullable Consumer<String> onSet)
 	{
-		return addField(name, new EntityFilterField(name, val));
+		return addField(name, new EntityFilterField(name, val, onSet));
 	}
 
 	private <T extends Field<?>> T addField(String name, T field)
@@ -108,19 +109,24 @@ public class SettingFields
 	public abstract static class Field<T>
 	{
 		public final String name;
+		private final @Nullable Consumer<T> onSet;
 		public final T defVal;
 		public T val;
 
-		public Field(String name, T defVal)
+		public Field(String name, T defVal, @Nullable Consumer<T> onSet)
 		{
 			this.name = name;
 			this.defVal = defVal;
 			this.val = defVal;
+			this.onSet = onSet;
+
+			if (onSet != null) { onSet.accept(val); }
 		}
 
 		public void set(T val)
 		{
 			this.val = val;
+			if (onSet != null) { onSet.accept(val); }
 		}
 
 		public void reset()
@@ -205,7 +211,7 @@ public class SettingFields
 	{
 		public BooleanField(String name, Boolean val)
 		{
-			super(name, val);
+			super(name, val, null);
 		}
 
 		@Override public Boolean parseFromString(String str)
@@ -228,30 +234,17 @@ public class SettingFields
 	{
 		public DoubleField(String name, Double val)
 		{
-			super(name, val);
+			super(name, val, null);
 		}
 
 		@Override public Double parseFromString(String str)
 		{
-			return validate(Double.valueOf(str));
+			return Double.valueOf(str);
 		}
 
 		@Override public Double parseFromCommand(FullCommandInfo info)
 		{
-			double value = info.getDouble("new_value");
-			if (name.equals("playback_speed") && (!Double.isFinite(value) || value < 0.05 || value > 20.0))
-			{
-				info.sendFailure("settings.playback_speed.invalid");
-				return null;
-			}
-			return validate(value);
-		}
-
-		private Double validate(Double value)
-		{
-			if (name.equals("playback_speed") && (!Double.isFinite(value) || value < 0.05 || value > 20.0))
-			{ throw new IllegalArgumentException("playback_speed must be between 0.05 and 20.0"); }
-			return value;
+			return info.getDouble("new_value");
 		}
 
 		@Override public ArgumentType<?> getArgumentType()
@@ -260,22 +253,21 @@ public class SettingFields
 		}
 	}
 
-	public static class EntityFilterField extends Field<EntityFilter>
+	public static class StringField extends Field<String>
 	{
-		public EntityFilterField(String name, EntityFilter val)
+		public StringField(String name, String val, @Nullable Consumer<String> onSet)
 		{
-			super(name, val);
+			super(name, val, onSet);
 		}
 
-		@Override public EntityFilter parseFromString(String str)
+		@Override public String parseFromString(String str)
 		{
-			EntityFilter filter = EntityFilter.fromString(str);
-			return filter != null ? filter : defVal;
+			return str;
 		}
 
-		@Override public @Nullable EntityFilter parseFromCommand(FullCommandInfo info)
+		@Override public @Nullable String parseFromCommand(FullCommandInfo info)
 		{
-			return EntityFilter.fromString(info.getString("new_value"));
+			return info.getString("new_value");
 		}
 
 		@Override public ArgumentType<?> getArgumentType()
@@ -285,8 +277,7 @@ public class SettingFields
 
 		@Override public void printValues(CommandInfo info)
 		{
-			String valStr = val.getFilterString();
-			String defValStr = defVal.getFilterString();
+			String valStr = val, defValStr = defVal;
 
 			info.sendSuccess("settings.info.string_value",
 					info.getTranslatableComponent("settings.info.current_value", valStr),
@@ -295,6 +286,25 @@ public class SettingFields
 			info.sendSuccess("settings.info.string_value",
 					info.getTranslatableComponent("settings.info.default_value", defValStr),
 					info.createCopyButton(defValStr));
+		}
+	}
+
+	public static class EntityFilterField extends StringField
+	{
+		public EntityFilterField(String name, String val, @Nullable Consumer<String> onSet)
+		{
+			super(name, val, onSet);
+		}
+
+		@Override public String parseFromString(String str)
+		{
+			return EntityFilterInstance.test(str) ? str : defVal;
+		}
+
+		@Override public @Nullable String parseFromCommand(FullCommandInfo info)
+		{
+			String newValue = info.getString("new_value");
+			return EntityFilterInstance.test(newValue) ? newValue : null;
 		}
 
 		@Override public SuggestionProvider<CommandSourceStack> getSuggestionProvider()
@@ -310,7 +320,7 @@ public class SettingFields
 
 		public EnumField(String name, T val)
 		{
-			super(name, val);
+			super(name, val, null);
 			enumClass = (Class<T>)val.getClass();
 			constants = enumClass.getEnumConstants();
 		}

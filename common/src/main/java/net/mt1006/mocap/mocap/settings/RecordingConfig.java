@@ -1,12 +1,10 @@
 package net.mt1006.mocap.mocap.settings;
 
 import net.mt1006.mocap.api.v1.controller.config.*;
-import net.mt1006.mocap.api.v1.modifiers.MocapEntityFilter;
 import org.jetbrains.annotations.Nullable;
 
 public class RecordingConfig implements MocapRecordingConfig
 {
-	private @Nullable MocapEntityFilter trackEntities;
 	private @Nullable Boolean preventTrackingPlayedEntities;
 	private @Nullable Double entityTrackingDistance;
 	private @Nullable MocapOnDeath onDeath;
@@ -18,7 +16,6 @@ public class RecordingConfig implements MocapRecordingConfig
 
 	public RecordingConfig(boolean setDefault)
 	{
-		trackEntities = setDefault ? Settings.TRACK_ENTITIES.defVal : null;
 		preventTrackingPlayedEntities = setDefault ? Settings.PREVENT_TRACKING_PLAYED_ENTITIES.defVal : null;
 		entityTrackingDistance = setDefault ? Settings.ENTITY_TRACKING_DISTANCE.defVal : null;
 		onDeath = setDefault ? Settings.ON_DEATH.defVal : null;
@@ -31,7 +28,6 @@ public class RecordingConfig implements MocapRecordingConfig
 
 	private RecordingConfig(RecordingConfig toCopy)
 	{
-		trackEntities = toCopy.trackEntities;
 		preventTrackingPlayedEntities = toCopy.preventTrackingPlayedEntities;
 		entityTrackingDistance = toCopy.entityTrackingDistance;
 		onDeath = toCopy.onDeath;
@@ -45,16 +41,6 @@ public class RecordingConfig implements MocapRecordingConfig
 	@Override public MocapRecordingConfig copy()
 	{
 		return new RecordingConfig(this);
-	}
-
-	@Override public MocapEntityFilter getTrackEntities()
-	{
-		return trackEntities != null ? trackEntities : Settings.TRACK_ENTITIES.val;
-	}
-
-	@Override public void setTrackEntities(@Nullable MocapEntityFilter val)
-	{
-		trackEntities = val;
 	}
 
 	@Override public boolean getPreventTrackingPlayedEntities()

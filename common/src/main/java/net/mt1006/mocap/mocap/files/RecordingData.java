@@ -29,6 +29,7 @@ import net.mt1006.mocap.api.v1.extension.actions.MocapBlockAction;
 import net.mt1006.mocap.api.v1.extension.actions.MocapStateAction;
 import net.mt1006.mocap.api.v1.extension.actions.MocapTickAction;
 import net.mt1006.mocap.api.v1.io.CommandOutput;
+import net.mt1006.mocap.command.converter.AlphaConverter;
 import net.mt1006.mocap.mocap.actions.ActionType;
 import net.mt1006.mocap.mocap.actions.BlockStateData;
 import net.mt1006.mocap.mocap.playing.playable.RecordingFile;
@@ -96,14 +97,16 @@ public class RecordingData implements MocapRecordingData
 		stream.write(writer.toByteArray());
 	}
 
-	public boolean load(CommandOutput out, @Nullable RecordingFile file)
+	//TODO: [CONVERTER] remove last arg
+	public boolean load(CommandOutput out, @Nullable RecordingFile file, boolean useConverter)
 	{
 		if (file == null) { return false; }
 		byte[] data = Files.loadFile(file.getFile());
-		return data != null && load(out, new RecordingFiles.FileReader(data, true));
+		return data != null && load(out, new RecordingFiles.FileReader(data, true), useConverter);
 	}
 
-	private boolean load(CommandOutput out, RecordingFiles.FileReader reader)
+	//TODO: [CONVERTER] remove last arg
+	private boolean load(CommandOutput out, RecordingFiles.FileReader reader, boolean useConverter)
 	{
 		fileSize = reader.getSize();
 
@@ -117,11 +120,16 @@ public class RecordingData implements MocapRecordingData
 			return false;
 		}
 
-		if (!loadHeader(out, reader, version == 1 || version == 2)) { return false; } //TODO: test old recordings
+		if (!loadHeader(out, reader, version == 1 || version == 2, useConverter)) { return false; } //TODO: test old recordings
+
+		//TODO: [CONVERTER] remove
+		AlphaConverter converter = (experimentalVersion && version == 5 && experimentalSubversion == 0 && useConverter)
+				? new AlphaConverter(startPos)
+				: null;
 
 		while (reader.canRead())
 		{
-			MocapAction action = ActionType.readAction(reader, this);
+			MocapAction action = ActionType.readAction(reader, this, converter, null);
 			if (action == null) { return false; }
 
 			actions.add(action);
@@ -183,7 +191,8 @@ public class RecordingData implements MocapRecordingData
 		}
 	}
 
-	private boolean loadHeader(CommandOutput out, RecordingFiles.FileReader reader, boolean legacyHeader)
+	//TODO: [CONVERTER] remove last arg
+	private boolean loadHeader(CommandOutput out, RecordingFiles.FileReader reader, boolean legacyHeader, boolean useConverter)
 	{
 		startPos = reader.readVec3();
 		startRot[0] = reader.readFloat();
@@ -204,7 +213,25 @@ public class RecordingData implements MocapRecordingData
 			// recorded between 1.4-alpha-1 and 1.4-alpha-8
 			// not compatible with current recording file format
 
-			out.sendFailure("failure.not_supported_experimental_format");
+			//TODO: [CONVERTER] do not remove! maybe move it somewhere else and replace conversion mode with failure message
+			if (useConverter)
+			{
+				//TODO: [CONVERTER] this should be removed
+				reader.convertStrings = true;
+			}
+			else
+			{
+				out.sendFailure("failure.not_supported_experimental_format");
+
+				//TODO: [CONVERTER] remove suggestions (including language keys)
+				out.sendFailure("failure.not_supported_experimental_format.suggest_converter.1");
+				out.sendFailure("failure.not_supported_experimental_format.suggest_converter.2");
+				return false;
+			}
+		}
+		else if (useConverter)
+		{
+			return out.sendFailure("misc.converter.not_convertible");
 		}
 
 		if (usesIdMaps)

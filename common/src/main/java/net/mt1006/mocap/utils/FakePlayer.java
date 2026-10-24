@@ -2,7 +2,6 @@ package net.mt1006.mocap.utils;
 
 import com.mojang.authlib.GameProfile;
 import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.embedded.EmbeddedChannel;
 import net.minecraft.network.chat.ChatType;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.PlayerChatMessage;
@@ -57,12 +56,12 @@ public class FakePlayer extends ServerPlayer
 			if (dyingTicks == 0 && playback != null) { playback.stop(); }
 		}
 
-		// Static actors still maintain death cleanup and invulnerability timers, but skip
-		// attack-strength bookkeeping that is not useful for visual-only crowds.
+		// for attacking other entities when swinging
 		if (!staticMode) { attackStrengthTicker++; }
 	}
 
 	@Override public ServerPlayer teleport(@NotNull TeleportTransition dimensionTransition) { return null; }
+	@Override public void displayClientMessage(@NotNull Component chatComponent, boolean actionBar) { }
 	@Override public void awardStat(@NotNull Stat stat, int amount) { }
 
 	@Override public boolean hurtServer(ServerLevel level, DamageSource damageSource, float amount)
@@ -162,7 +161,6 @@ public class FakePlayer extends ServerPlayer
 		public DummyConnection(PacketFlow packetFlow)
 		{
 			super(packetFlow);
-			new EmbeddedChannel(this);
 		}
 	}
 }
