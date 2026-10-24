@@ -916,18 +916,18 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             if (args.length == 2) return filter(List.of("help", "start", "stop", "discard", "save", "list"), args[1]);
             String action = args[1].toLowerCase(Locale.ROOT);
             if (args.length == 3 && action.equals("start")) return playerAndSelectorSuggestions(args[2]);
-            if (args.length == 4 && action.equals("start")) return filter(List.of("my_recording", "session_1"), args[3]);
-            if (args.length == 3 && List.of("stop", "discard", "list").contains(action)) return filter(recordings.availableIds(), args[2]);
-            if (args.length == 3 && action.equals("save")) return filter(List.of("my_recording", "session_1"), args[2]);
-            if (args.length == 4 && action.equals("save")) return filter(recordings.availableIds(), args[3]);
+            if (args.length == 4 && action.equals("start")) return filterOrHint(List.of(), args[3], "<instant-save-name:optional>");
+            if (args.length == 3 && List.of("stop", "discard", "list").contains(action)) return recordingSessionIdSuggestions(args[2]);
+            if (args.length == 3 && action.equals("save")) return filterOrHint(List.of(), args[2], "<recording-file-name>");
+            if (args.length == 4 && action.equals("save")) return recordingSessionIdSuggestions(args[3]);
             return List.of();
         }
 
         if (root.equals("recordings")) {
             if (args.length == 2) return filter(List.of("help", "list", "info", "copy", "rename", "remove"), args[1]);
             String action = args[1].toLowerCase(Locale.ROOT);
-            if (args.length == 3 && List.of("info", "copy", "rename", "remove", "delete").contains(action)) return filter(scenes.listRecordings(), args[2]);
-            if (args.length == 4 && List.of("copy", "rename").contains(action)) return filter(List.of("new_recording", "recording_copy"), args[3]);
+            if (args.length == 3 && List.of("info", "copy", "rename", "remove", "delete").contains(action)) return recordingNameSuggestions(args[2]);
+            if (args.length == 4 && List.of("copy", "rename").contains(action)) return filterOrHint(List.of(), args[3], "<new-recording-name>");
             return List.of();
         }
 
@@ -940,17 +940,17 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         if (List.of("random_names", "random_skins", "set_name").contains(root)) return rootCustomizeAliasSuggestions(args);
         if (root.equals("formation")) {
             if (args.length == 2) return filter(List.of("help", "add"), args[1]);
-            if (args.length == 3 && args[1].equalsIgnoreCase("add")) return filter(scenes.listScenes(), args[2]);
-            if (args.length == 4 && args[1].equalsIgnoreCase("add")) return filter(scenes.listRecordings(), args[3]);
-            if (args.length == 5 && args[1].equalsIgnoreCase("add")) return filter(List.of("<rows:1-1000>"), args[4]);
-            if (args.length == 6 && args[1].equalsIgnoreCase("add")) return filter(List.of("<columns:1-1000>"), args[5]);
-            if (args.length == 7 && args[1].equalsIgnoreCase("add")) return filter(List.of("<spacing-blocks:0.5-128>"), args[6]);
+            if (args.length == 3 && args[1].equalsIgnoreCase("add")) return sceneNameSuggestions(args[2]);
+            if (args.length == 4 && args[1].equalsIgnoreCase("add")) return recordingNameSuggestions(args[3]);
+            if (args.length == 5 && args[1].equalsIgnoreCase("add")) return filterOrHint(List.of(), args[4], "<rows:1-1000>");
+            if (args.length == 6 && args[1].equalsIgnoreCase("add")) return filterOrHint(List.of(), args[5], "<columns:1-1000>");
+            if (args.length == 7 && args[1].equalsIgnoreCase("add")) return filterOrHint(List.of(), args[6], "<spacing-blocks:0.5-128>");
             return List.of();
         }
         if (root.equals("copy")) {
             if (args.length == 2) return filter(List.of("help", "scene"), args[1]);
-            if (args.length == 3 && args[1].equalsIgnoreCase("scene")) return filter(scenes.listScenes(), args[2]);
-            if (args.length == 4 && args[1].equalsIgnoreCase("scene")) return filter(List.of("new_scene", "scene_copy"), args[3]);
+            if (args.length == 3 && args[1].equalsIgnoreCase("scene")) return sceneNameSuggestions(args[2]);
+            if (args.length == 4 && args[1].equalsIgnoreCase("scene")) return filterOrHint(List.of(), args[3], "<new-scene-name>");
             return List.of();
         }
         if (root.equals("settings")) return settingsSuggestions(args);
@@ -969,7 +969,7 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             PaperSettingsStore.Definition def = settings.definition(args[1], args[2]);
             if (def == null || !def.supported()) return List.of();
             if (def.type() == PaperSettingsStore.Type.BOOLEAN) return filter(List.of("true", "false"), args[3]);
-            if (def.type() == PaperSettingsStore.Type.DOUBLE) return filter(List.of("0.1", "0.5", "1.0", "1.5", "2.0", "4.0"), args[3]);
+            if (def.type() == PaperSettingsStore.Type.DOUBLE) return filterOrHint(List.of(), args[3], "<number>");
         }
         if (args.length == 4 && args[1].equalsIgnoreCase("info")) {
             return filter(settings.fields(args[2]).stream().map(PaperSettingsStore.Definition::name).toList(), args[3]);
@@ -983,32 +983,36 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         String action = args[1].toLowerCase(Locale.ROOT);
         if (args.length == 3) {
             return switch (action) {
-                case "add", "create" -> filter(List.of("new_scene", "scene_1"), args[2]);
-                case "copy", "rename" -> filter(scenes.listScenes(), args[2]);
+                case "add", "create" -> filterOrHint(List.of(), args[2], "<new-scene-name>");
+                case "copy", "rename" -> sceneNameSuggestions(args[2]);
                 case "remove", "delete", "info", "list", "play", "add_to", "addto", "add-to", "remove_from", "remove-from", "modify" ->
-                        filter(scenes.listScenes(), args[2]);
+                        sceneNameSuggestions(args[2]);
                 case "customize" -> filter(List.of("names", "skins", "name", "equipment"), args[2]);
                 case "formation" -> filter(List.of("add"), args[2]);
                 default -> List.of();
             };
         }
         if (action.equals("copy") || action.equals("rename")) {
-            return args.length == 4 ? filter(List.of("new_scene", "scene_copy"), args[3]) : List.of();
+            return args.length == 4 ? filterOrHint(List.of(), args[3], "<new-scene-name>") : List.of();
         }
         if (List.of("remove_from", "remove-from", "modify").contains(action)) {
-            if (args.length == 4) return filter(scenes.sceneElementSuggestions(args[2]), args[3]);
+            if (args.length == 4) return filterOrHint(scenes.sceneElementSuggestions(args[2]), args[3], "<element-index:scene-may-be-empty>");
             if (action.equals("remove_from") || action.equals("remove-from")) return List.of();
             if (args.length == 5) return filter(List.of("subscene_name", "player_name", "player_skin", "time", "transformations"), args[4]);
             if (args.length >= 6) return sceneModifierSuggestions(args);
         }
         if (action.equals("info") || action.equals("list")) {
-            if (args.length == 4) return filter(scenes.sceneElementSuggestions(args[2]), args[3]);
+            if (args.length == 4) return filterOrHint(scenes.sceneElementSuggestions(args[2]), args[3], "<element-index:scene-may-be-empty>");
             return List.of();
         }
         if (List.of("add_to", "addto", "add-to").contains(action)) {
-            if (args.length == 4) return combineAndFilter(scenes.listRecordings(), scenes.listScenes(), args[3]);
-            if (args.length == 5) return filter(List.of("<wait-on-start-seconds:0-36000>"), args[4]);
-            if (args.length == 6) return profileNameSuggestions(args[5]);
+            if (args.length == 4) return playableNameSuggestions(args[3]);
+            if (args.length == 5) return filterOrHint(List.of(), args[4], "<wait-on-start-seconds:optional,0-36000>");
+            if (args.length == 6) {
+                List<String> values = new ArrayList<>(profileNameSuggestions(args[5]));
+                values.add("<player-name:optional>");
+                return values.stream().distinct().limit(100).toList();
+            }
             if (args.length == 7) return filter(List.of("default", "skin_from_player", "skin_from_file", "skin_from_mineskin"), args[6]);
             if (args.length == 8) {
                 String type = args[6].toLowerCase(Locale.ROOT);
@@ -1018,7 +1022,7 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             return List.of();
         }
         if (action.equals("play")) {
-            if (args.length == 4) return combineAndFilter(scenes.listRecordings(), scenes.listScenes(), args[3]);
+            if (args.length == 4) return playableNameSuggestions(args[3]);
             if (args.length == 5) return filter(List.of("loop"), args[4]);
         }
         if (action.equals("customize")) {
@@ -1075,7 +1079,7 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         if (args.length == 1) return List.of();
         if (args.length == 2) {
             return switch (action) {
-                case "play", "playhere" -> combineAndFilter(scenes.listRecordings(), scenes.listScenes(), args[1]);
+                case "play", "playhere" -> playableNameSuggestions(args[1]);
                 case "stop", "freeze", "unfreeze", "end_freeze", "low_lag" -> playbackIdSuggestions(args[1]);
                 case "nametags" -> {
                     List<String> values = new ArrayList<>(filter(List.of("hide", "show"), args[1]));
@@ -1100,7 +1104,7 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
 
     private List<String> rootCustomizeAliasSuggestions(String[] args) {
         String action = args[0].toLowerCase(Locale.ROOT);
-        if (args.length == 2) return filter(scenes.listScenes(), args[1]);
+        if (args.length == 2) return sceneNameSuggestions(args[1]);
         if (action.equals("set_name")) {
             if (args.length == 3) return filter(scenes.sceneElementSuggestions(args[1]), args[2]);
             if (args.length == 4) return profileNameSuggestions(args[3]);
@@ -1121,7 +1125,7 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
                     : List.of("help", "start", "list", "stop", "stopall", "freeze", "unfreeze", "end-freeze", "low-lag", "nametags"), args[1]);
         }
         String action = args[1].toLowerCase(Locale.ROOT);
-        if (args.length == 3 && action.equals("start")) return combineAndFilter(scenes.listRecordings(), scenes.listScenes(), args[2]);
+        if (args.length == 3 && action.equals("start")) return playableNameSuggestions(args[2]);
         if (args.length == 3 && List.of("stop", "freeze", "unfreeze", "end-freeze", "low-lag").contains(action)) return playbackIdSuggestions(args[2]);
         if (args.length == 3 && action.equals("nametags")) {
             List<String> values = new ArrayList<>(filter(List.of("hide", "show"), args[2]));
@@ -1168,6 +1172,35 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         String existing = comma >= 0 ? prefix.substring(0, comma + 1) : "";
         String partial = comma >= 0 ? prefix.substring(comma + 1).trim() : prefix.trim();
         return filter(values, partial).stream().map(value -> existing + value).distinct().toList();
+    }
+
+    private List<String> filterOrHint(List<String> values, String prefix, String hint) {
+        List<String> matches = filter(values, prefix == null ? "" : prefix);
+        if (!matches.isEmpty()) return matches;
+        return prefix == null || prefix.isBlank() ? List.of(hint) : List.of();
+    }
+
+    private List<String> recordingNameSuggestions(String prefix) {
+        return filterOrHint(scenes.listRecordings(), prefix, "<recording-name:save-a-recording-first>");
+    }
+
+    private List<String> sceneNameSuggestions(String prefix) {
+        return filterOrHint(scenes.listScenes(), prefix, "<scene-name:create-a-scene-first>");
+    }
+
+    private List<String> playableNameSuggestions(String prefix) {
+        return filterOrHint(combine(scenes.listRecordings(), scenes.listScenes()), prefix,
+                "<recording-name-or-.scene:save-or-create-first>");
+    }
+
+    private static List<String> combine(List<String> first, List<String> second) {
+        List<String> values = new ArrayList<>(first);
+        values.addAll(second);
+        return values;
+    }
+
+    private List<String> recordingSessionIdSuggestions(String prefix) {
+        return filterOrHint(recordings.availableIds(), prefix, "<recording-id:use-/mocap-recording-list>");
     }
 
     private List<String> playbackIds() {
@@ -1241,7 +1274,7 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         }
 
         if (rel == 2 && List.of("names", "skins", "name").contains(action)) {
-            return filter(scenes.listScenes(), args[base + 1]);
+            return sceneNameSuggestions(args[base + 1]);
         }
         if (rel == 3 && action.equals("name")) {
             return filter(scenes.sceneElementSuggestions(args[base + 1]), args[base + 2]);
