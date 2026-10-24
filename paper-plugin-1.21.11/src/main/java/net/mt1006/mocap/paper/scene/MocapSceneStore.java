@@ -18,6 +18,8 @@ public final class MocapSceneStore {
     private final Path recordingDir;
     private final Path sceneDir;
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    private String knownProfileSignature = "";
+    private List<String> knownProfileCache = List.of();
 
     public MocapSceneStore(Path worldRoot) throws IOException {
         Path mocap = worldRoot.resolve("mocap_files");
@@ -316,9 +318,28 @@ public final class MocapSceneStore {
         }
     }
 
-    public List<String> knownProfiles() {
+    public synchronized List<String> knownProfiles() {
+        List<String> recordingNames = listRecordings();
+        List<String> sceneNames = listScenes();
+        StringBuilder signature = new StringBuilder();
+        appendFileSignature(signature, recordingDir, recordingNames, ".mcmocap_rec");
+        appendFileSignature(signature, sceneDir, sceneNames.stream().map(s -> s.startsWith(".") ? s.substring(1) : s).toList(), ".mcmocap_scene");
+        String currentSignature = signature.toString();
+        if (currentSignature.equals(knownProfileSignature)) return knownProfileCache;
+
         Set<String> profiles = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
-        for (String sceneName : listScenes()) {
+        // Include real recorded player/profile names so skins can be randomized from the saved
+        // recording population without forcing users to manually retype every original name.
+        // Results are cached by the recording/scene file size and modification signature.
+        MocapRecordingParser parser = new MocapRecordingParser();
+        for (String recordingName : recordingNames) {
+            try {
+                MocapRecordingParser.Recording recording = parser.parse(recordingPath(recordingName));
+                String recordedProfile = recording.recordedProfileName();
+                if (recordedProfile != null && recordedProfile.matches("[A-Za-z0-9_]{1,16}")) profiles.add(recordedProfile);
+            } catch (IOException | RuntimeException ignored) {}
+        }
+        for (String sceneName : sceneNames) {
             try {
                 JsonObject scene = readScene(sceneName);
                 for (JsonElement raw : requireEntries(scene)) {
@@ -335,7 +356,21 @@ public final class MocapSceneStore {
                 }
             } catch (IOException | RuntimeException ignored) {}
         }
-        return List.copyOf(profiles);
+        knownProfileSignature = currentSignature;
+        knownProfileCache = List.copyOf(profiles);
+        return knownProfileCache;
+    }
+
+    private static void appendFileSignature(StringBuilder signature, Path root, List<String> names, String extension) {
+        for (String name : names) {
+            Path file = root.resolve(name + extension);
+            try {
+                signature.append(name).append(':').append(Files.size(file)).append(':')
+                        .append(Files.getLastModifiedTime(file).toString()).append(';');
+            } catch (IOException ignored) {
+                signature.append(name).append(":missing;");
+            }
+        }
     }
 
     private void validatePlayable(String raw) throws IOException {
