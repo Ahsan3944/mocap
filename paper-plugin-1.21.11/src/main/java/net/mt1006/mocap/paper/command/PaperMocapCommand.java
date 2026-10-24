@@ -915,6 +915,10 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         if (root.equals("scene") || root.equals("scenes")) return sceneSuggestions(args);
         if (root.equals("playing") || root.equals("playback")) return playbackSuggestions(args, root.equals("playing"));
         if (root.equals("customize")) return customizeSuggestions(args, 1);
+        if (root.equals("equipment")) return customizeSuggestions(args, 0);
+        if (List.of("play", "playhere", "list", "stop", "stopall", "stop_all", "freeze", "unfreeze",
+                "end_freeze", "low_lag", "nametags", "modifiers").contains(root)) return rootPlaybackAliasSuggestions(args);
+        if (List.of("random_names", "random_skins", "set_name").contains(root)) return rootCustomizeAliasSuggestions(args);
         if (root.equals("formation")) {
             if (args.length == 2) return filter(List.of("help", "add"), args[1]);
             if (args.length == 3 && args[1].equalsIgnoreCase("add")) return filter(scenes.listScenes(), args[2]);
@@ -1041,6 +1045,41 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             if (args.length == 7 && args[5].equalsIgnoreCase("offset")) return filter(List.of("<x-blocks>"), args[6]);
             if (args.length == 8 && args[5].equalsIgnoreCase("offset")) return filter(List.of("<y-blocks>"), args[7]);
             if (args.length == 9 && args[5].equalsIgnoreCase("offset")) return filter(List.of("<z-blocks>"), args[8]);
+        }
+        return List.of();
+    }
+
+    private List<String> rootPlaybackAliasSuggestions(String[] args) {
+        String action = args[0].toLowerCase(Locale.ROOT);
+        if (args.length == 1) return List.of();
+        if (args.length == 2) {
+            return switch (action) {
+                case "play", "playhere" -> combineAndFilter(scenes.listRecordings(), scenes.listScenes(), args[1]);
+                case "stop", "freeze", "unfreeze", "end_freeze", "low_lag", "nametags" -> filter(playbackIds(), args[1]);
+                case "stopall", "stop_all", "list" -> List.of();
+                case "modifiers" -> filter(List.of("help", "list", "reset", "set", "add_to"), args[1]);
+                default -> List.of();
+            };
+        }
+        if (args.length == 3 && action.equals("low_lag")) return filter(List.of("on", "off"), args[2]);
+        if (args.length == 3 && action.equals("nametags")) return filter(List.of("hide", "show"), args[2]);
+        if (action.equals("modifiers") && args.length == 3 && args[1].equalsIgnoreCase("add_to")) return filter(scenes.listScenes(), args[2]);
+        if (action.equals("modifiers") && args.length == 4 && args[1].equalsIgnoreCase("add_to")) return combineAndFilter(scenes.listRecordings(), scenes.listScenes(), args[3]);
+        return List.of();
+    }
+
+    private List<String> rootCustomizeAliasSuggestions(String[] args) {
+        String action = args[0].toLowerCase(Locale.ROOT);
+        if (args.length == 2) return filter(scenes.listScenes(), args[1]);
+        if (action.equals("set_name")) {
+            if (args.length == 3) return filter(scenes.sceneElementSuggestions(args[1]), args[2]);
+            if (args.length == 4) return profileNameSuggestions(args[3]);
+            return List.of();
+        }
+        if (args.length == 3) {
+            List<String> values = new ArrayList<>(filter(List.of("auto", "random", "recorded"), args[2]));
+            values.addAll(profileNameSuggestions(args[2]));
+            return values.stream().distinct().limit(100).toList();
         }
         return List.of();
     }
