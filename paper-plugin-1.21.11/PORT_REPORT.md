@@ -6,7 +6,7 @@
 
 ## Status at audited code commit 995f5d4c6edb115e079122adbd644655ea8d0b24
 
-- Java 21 clean build, selected parser/scene JUnit tests, JAR ZIP integrity, plugin.yml, main class and entrypoint checks: **PASS** in GitHub Actions run [40086999601](https://github.com/Ahsan3944/mocap/actions/runs/40086999601).
+- Java 21 clean build, the current parser/scene JUnit suite (including parent modifier persistence, nested-scene recursion/depth guards and timing/transform serialization), JAR ZIP integrity, plugin.yml, main class and entrypoint checks: **PASS** in GitHub Actions run [40091053688](https://github.com/Ahsan3944/mocap/actions/runs/40091053688).
 - In-game command/TAB behavior, Fabric/Paper visual comparison, multi-actor playback, recording for 30 minutes, profile resolution, equipment restart persistence and long-loop runtime acceptance: **NOT RUN**.
 - Full upstream feature parity: **NOT achieved**. See the feature matrix and source command reference linked below.
 
@@ -16,7 +16,7 @@
 - Recording writer emits a Mocap v3-compatible header with the actual recorded profile name; parser defensively reads supported v1–v5 inputs with bounds on file size, action count, ticks and nested payload depth.
 - Scene JSON: safe paths/names, version checking, create/add/add_to/copy/rename/remove/remove_from/modify/info/list helpers, nested-scene expansion/recursion guard, some timing and transform support.
 - Paper Mannequin visual playback: supported movement/rotation/poses, basic item identifiers, name/profile display, looping, freeze/unfreeze/end-freeze controls, name-tag visibility, grouped equipment presets and formation helper.
-- Random scene profile/name assignment is saved in scene JSON. Exact nested-scene semantics and no-reroll guarantees still need dedicated regression/runtime tests.
+- Random scene profile/name assignment is saved in scene JSON. Tests verify that a parent nested-scene element persists its own `player_name` and `player_skin` without mutating the referenced child scene. Effective profile/display name across the actual Mannequin playback path, no-reroll behavior and real client visuals still require runtime testing.
 
 ## Known parity gaps — do not describe these as implemented upstream features
 
