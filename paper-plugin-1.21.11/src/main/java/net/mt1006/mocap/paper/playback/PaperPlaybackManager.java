@@ -221,7 +221,19 @@ public final class PaperPlaybackManager {
     public boolean applyPreset(String id, EquipmentPresetStore.Preset preset) {
         Session s = sessions.get(id);
         if (s == null) return false;
-        for (Actor actor : s.actors) EquipmentPresetStore.apply(actor.mannequin(), preset);
+        for (Actor actor : s.actors) {
+            actor.equipmentOverride = preset;
+            EquipmentPresetStore.apply(actor.mannequin(), preset);
+        }
+        return true;
+    }
+
+    public boolean applyPresetToActor(String id, int oneBasedActorIndex, EquipmentPresetStore.Preset preset) {
+        Session s = sessions.get(id);
+        if (s == null || oneBasedActorIndex < 1 || oneBasedActorIndex > s.actors.size()) return false;
+        Actor actor = s.actors.get(oneBasedActorIndex - 1);
+        actor.equipmentOverride = preset;
+        EquipmentPresetStore.apply(actor.mannequin(), preset);
         return true;
     }
 
@@ -233,6 +245,7 @@ public final class PaperPlaybackManager {
         Random random = new Random();
         for (Actor actor : s.actors) {
             EquipmentPresetStore.Preset preset = equipment.get(group, names.get(random.nextInt(names.size())));
+            actor.equipmentOverride = preset;
             EquipmentPresetStore.apply(actor.mannequin(), preset);
         }
         return true;
@@ -285,6 +298,7 @@ public final class PaperPlaybackManager {
         private final String displayName;
         private final double anchorX, anchorY, anchorZ;
         private int frameIndex = -1;
+        private EquipmentPresetStore.Preset equipmentOverride;
 
         private Actor(MocapSceneStore.ActorSpec spec, MocapRecordingParser.Recording recording, Mannequin mannequin,
                       String profileName, String displayName, double anchorX, double anchorY, double anchorZ) {
@@ -307,6 +321,8 @@ public final class PaperPlaybackManager {
             } catch (IllegalArgumentException ignored) {}
             mannequin.setMainHand(frame.rightHand() ? MainHand.RIGHT : MainHand.LEFT);
             if (applyEquipment) applyEquipment(mannequin, frame.equipment());
+            // User-selected presets override recorded equipment on every frame and after loops.
+            if (equipmentOverride != null) EquipmentPresetStore.apply(mannequin, equipmentOverride);
         }
 
         private void update(int tick) {

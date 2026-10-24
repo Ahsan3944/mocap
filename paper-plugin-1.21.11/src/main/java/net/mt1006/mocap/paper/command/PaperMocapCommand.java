@@ -142,6 +142,14 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
                 EquipmentPresetStore.Preset preset = equipment.get(args[3], args[4]);
                 sender.sendMessage(playbacks.applyPreset(args[2], preset) ? "Equipment preset applied." : "Playback ID not found.");
             }
+            case "apply_element" -> {
+                if (args.length < 6) { usage(sender, "/mocap equipment apply_element <playback-id> <actor-index> <group> <name>"); return; }
+                int actorIndex = Integer.parseInt(args[3]);
+                EquipmentPresetStore.Preset preset = equipment.get(args[4], args[5]);
+                sender.sendMessage(playbacks.applyPresetToActor(args[2], actorIndex, preset)
+                        ? "Equipment preset applied to actor " + actorIndex + "."
+                        : "Playback ID not found or actor index is out of range.");
+            }
             case "randomize" -> {
                 if (args.length < 4) { usage(sender, "/mocap equipment randomize <playback-id> <group>"); return; }
                 sender.sendMessage(playbacks.randomizePresets(args[2], args[3]) ? "Randomized equipment presets across playback actors." : "Playback ID not found.");
@@ -186,7 +194,7 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
 
     private static void equipmentHelp(CommandSender sender) {
         sender.sendMessage("/mocap equipment save <group> <name> | list [group] | delete <group> <name>");
-        sender.sendMessage("/mocap equipment apply <id> <group> <name> | randomize <id> <group>");
+        sender.sendMessage("/mocap equipment apply <id> <group> <name> | apply_element <id> <actor-index> <group> <name> | randomize <id> <group>");
     }
 
     @Override
@@ -199,16 +207,19 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             return filter(playbacks.list().stream().map(s -> s.split(" ")[0]).toList(), args[1]);
         }
         if (args.length == 2 && List.of("random_names","random_skins","set_name","formation","copy_scene").contains(args[0].toLowerCase(Locale.ROOT))) return filter(scenes.listScenes(), args[1]);
-        if (args.length == 2 && args[0].equalsIgnoreCase("equipment")) return filter(List.of("save","list","delete","apply","randomize"), args[1]);
+        if (args.length == 2 && args[0].equalsIgnoreCase("equipment")) return filter(List.of("save","list","delete","apply","apply_element","randomize"), args[1]);
         if (args.length == 3 && args[0].equalsIgnoreCase("formation")) return filter(scenes.listRecordings(), args[2]);
         if (args.length == 3 && args[0].equalsIgnoreCase("equipment") && List.of("list","save","delete").contains(args[1].toLowerCase(Locale.ROOT))) {
             try { return filter(equipment.listGroups(), args[2]); } catch (IOException ignored) { return List.of(); }
         }
-        if (args.length == 3 && args[0].equalsIgnoreCase("equipment") && List.of("apply","randomize").contains(args[1].toLowerCase(Locale.ROOT))) {
+        if (args.length == 3 && args[0].equalsIgnoreCase("equipment") && List.of("apply","apply_element","randomize").contains(args[1].toLowerCase(Locale.ROOT))) {
             return filter(playbacks.list().stream().map(s -> s.split(" ")[0]).toList(), args[2]);
         }
         if (args.length == 5 && args[0].equalsIgnoreCase("equipment") && args[1].equalsIgnoreCase("apply")) {
             try { return filter(equipment.list(args[3]), args[4]); } catch (IOException ignored) { return List.of(); }
+        }
+        if (args.length == 6 && args[0].equalsIgnoreCase("equipment") && args[1].equalsIgnoreCase("apply_element")) {
+            try { return filter(equipment.list(args[4]), args[5]); } catch (IOException ignored) { return List.of(); }
         }
         return List.of();
     }

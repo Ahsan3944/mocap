@@ -2,7 +2,7 @@
 
 Target: Paper 1.21.11, Java 21, paper-api 1.21.11-R0.1-SNAPSHOT. This is a plugin JAR, not a Fabric/NeoForge mod.
 
-Implemented: defensive reader for recording formats v1-v5 with size/action/tick/coordinate limits; scene JSON/nested-scene loading, recursion guards, safe paths, atomic save, copy without overwriting, grid formation, persisted random names/profile names, individual name change for a direct recording element; Mannequin movement/rotation/supported poses/basic item IDs/main-hand orientation/profile-name skins; loop/freeze/unfreeze/end-freeze, stop/stop-all, name-tag show/hide, immovability toggle, grouped equipment presets and random preset application.
+Implemented: defensive reader for recording formats v1-v5 with size/action/tick/coordinate limits; scene JSON/nested-scene loading, recursion guards, safe paths, atomic save, copy without overwriting, grid formation, persisted random names/profile names, individual name change for a direct recording element; Mannequin movement/rotation/supported poses/basic item IDs/main-hand orientation/profile-name skins; loop/freeze/unfreeze/end-freeze, stop/stop-all, name-tag show/hide, immovability toggle, grouped equipment presets, persistent equipment overrides, per-actor preset application, and random preset application.
 
 JUnit tests cover legacy/current headers, yaw/pitch ordering, legacy and delta movement, reserved movement flags, truncated/empty input, invalid versions, and unknown actions. Scene tests cover future format rejection, path traversal, and refusal to overwrite an existing scene. Actions workflow builds on Java 21, tests, validates JAR integrity/descriptor/entrypoint and creates a release only on success.
 
