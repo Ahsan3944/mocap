@@ -1,41 +1,96 @@
 # Mocap Paper 1.21.11 — UltraOP port
 
-A separate Paper plugin for Java 21, using Paper's public Mannequin API. It reads the existing Mocap files from the first loaded world's mocap_files/recordings and mocap_files/scenes directories.
+Paper plugin for Java 21. The upstream Mocap command hierarchy is retained where supported: `recording`, `recordings`, `scenes`, `playing`, `settings`, `info`, and `help`. Paper-only playback conveniences live under `playback`, `customize`, and `formation`.
 
-## Build
+## Build and install
+
 From the repository root run:
-    ./gradlew -p paper-plugin-1.21.11 --no-daemon clean test build
 
-Install the resulting JAR from paper-plugin-1.21.11/build/libs/ in the Paper server's plugins/ directory. Do not install it in Fabric's mods/ folder.
+```sh
+./gradlew -p paper-plugin-1.21.11 --no-daemon clean test build
+```
 
-## Commands
-All management commands require permission mocap.admin (default: operator).
+Install `paper-plugin-1.21.11/build/libs/Mocap-PAPER-1.21.11-1.0.0-uop1.jar` in the Paper server's `plugins/` directory. Do not put this plugin JAR in Fabric's `mods/` folder.
 
-### Paper-native movement recording
-- `/mocap recording start [<player|selector>] [<instant-save-name>]` — starts recording the executing player by default, or selected online players. TAB suggests `@a`, `@p`, `@s`, and online player names.
-- `/mocap recording stop [<id>]` — stops a recording; without an ID it resolves the sender's active recording where possible.
-- `/mocap recording save <name> [<id>]` — saves a stopped recording as `.mcmocap_rec` in the world's `mocap_files/recordings` directory.
-- `/mocap recording discard [<id>]` and `/mocap recording list [<id>]` — discard or inspect in-memory sessions.
+## Recording
 
-**Recording scope:** the Paper recorder captures per-tick position, rotation, and supported pose changes using the legacy Mocap v1 recording stream, which the bundled parser can read. It does not yet capture block edits, chat, inventory/equipment changes, damage, entities/mounts, or extension actions. Stopped sessions that are not saved are held in memory only and are lost on server/plugin restart.
-- /mocap recordings; /mocap scenes
-- /mocap play <recording|.scene> [loop]; /mocap playhere <recording|.scene> [loop]
-- /mocap list; /mocap stop <id>; /mocap stopall
-- /mocap freeze <id>; /mocap unfreeze <id>; /mocap end_freeze <id>
-- /mocap nametags <id> <hide|show>; /mocap low_lag <id> <on|off>
-- /mocap random_names <scene> <comma,separated,names>
-- /mocap random_skins <scene> <comma,separated,profile_names>
-- /mocap set_name <scene> <element-index> <player-name>
-- /mocap formation <scene> <recording> <rows> <columns> <spacing>
-- /mocap copy_scene <source> <target>
-- /mocap equipment save <group> <name>; list [group]; delete <group> <name>
-- /mocap equipment apply <id> <group> <name> — applies a persistent preset override to all actors in the playback.
-- /mocap equipment apply_element <id> <actor-index> <group> <name> — applies a persistent override to one actor (1-based index in expanded playback order).
-- /mocap equipment randomize <id> <group> — assigns a persistent random preset to each actor.
+- `/mocap recording start [<player|selector>] [<instant-save-name>]`
+- `/mocap recording stop [<id>]`
+- `/mocap recording save <file-name> [<id>]`
+- `/mocap recording discard [<id>]`
+- `/mocap recording list [<id>]`
 
-Scenes use the existing Mocap JSON structure and .mcmocap_scene extension; recordings use .mcmocap_rec. Random names/profile names persist in scene JSON and are not re-rolled on replay. Random assignment and individual renaming reject nested scene elements.
+When run by a player, `/mocap recording start` defaults to recording that player. Optional targets accept online player names, comma-separated names, or selectors supported by Paper such as `@a`, `@p`, and `@s`. TAB completion suggests selectors and online player names. The saved Mocap recording header includes the actual recorded player's profile name; playback uses it as the actor display name unless a scene or playback command overrides it.
 
-## Known limits
-Paper Mannequins are not fake ServerPlayer entities. This port shows movement, yaw/pitch, supported poses, main-hand orientation, basic item IDs, scene placement transforms, loops/freezing, name visibility and equipment presets. Recorded block edits/mining, chat, entity add/remove/mount, hits/swings, custom Mocap extension actions, and player-only packet semantics are consumed safely but not executed. Item components/NBT, custom PNG/MineSkin skins, embedded signed skin properties, mirror/custom scene centers and player-as-entity transforms are not fully ported. Profile lookup requires Mojang services. Low-lag is an immovability toggle, not a benchmarked performance guarantee.
+The Paper recorder captures position, rotation, tick timing, and supported player pose changes. It does **not** currently capture block edits/mining, chat, inventory/equipment changes, damage/combat, entity add/remove/mount, or custom Mocap extension actions. Stopped recordings that are not saved are held in memory only and will be lost on server/plugin restart. The upstream Mod's complete recording engine is not fully ported to Paper.
 
-Build/tests validate compilation, packaging and selected parser cases, not all live gameplay. Test on a backup world; 500 actors is a safety cap, not a performance promise.
+## Saved recordings
+
+- `/mocap recordings list`
+- `/mocap recordings info <name>`
+- `/mocap recordings copy <source> <target>`
+- `/mocap recordings rename <old-name> <new-name>`
+- `/mocap recordings remove <name>`
+
+Files are stored in the first loaded world's `mocap_files/recordings/` directory.
+
+## Scenes — restored upstream-style workflow
+
+- `/mocap scenes add <scene-name>` — create an empty scene.
+- `/mocap scenes add_to <scene> <recording|.nested-scene> [<wait-on-start-seconds>] [<player-name>] [<skin-source> <skin-value>]` — add a recording or another scene. Prefix a nested scene with a dot, e.g. `.intro`.
+- `/mocap scenes copy <source> <target>`
+- `/mocap scenes rename <old-name> <new-name>`
+- `/mocap scenes remove <scene-name>`
+- `/mocap scenes remove_from <scene> <element-index[-name]>`
+- `/mocap scenes modify <scene> <element-index[-name]> <property> <values...>`
+- `/mocap scenes info <scene> [<element-index[-name]>]`
+- `/mocap scenes list [<scene-name>]`
+- `/mocap scenes play <recording|.scene> [loop]`
+
+Scene modifiers currently supported include:
+- `player_name inherited`, `player_name blank`, `player_name set <name>`
+- `player_skin default`, `player_skin from_player <profile>`
+- `time start_delay <seconds>`, `time wait_on_start <seconds>`, `time wait_on_end <seconds>`, `time wait_for_parent_end <true|false>`, `time loop <true|false>`
+- `transformations offset <x> <y> <z>`, `transformations rotation <degrees>`, `transformations mirror <none|x|z|xz>`, `transformations scale <of_player|of_scene> <scale>`
+
+For example:
+```text
+/mocap scenes add battle
+/mocap scenes add_to battle alex_run 1.5 Alex skin_from_player Steve
+/mocap scenes add_to battle .intro 0
+/mocap scenes list battle
+/mocap scenes play .battle
+```
+
+TAB completion includes known scene names, scene element IDs, recording names, player/profile names, skin sources, time modifiers and transformation modifiers. Profile suggestions include online players, profiles already referenced by scenes, and the common sample names `Steve` and `Alex`.
+
+## Playing and Paper-only controls
+
+Upstream-style playback entry points:
+- `/mocap playing start <recording|.scene> [<player-name>] [skin_from_player <profile>]`
+- `/mocap playing stop <id>`
+- `/mocap playing stop_all`
+- `/mocap playing list`
+
+Additional Paper controls:
+- `/mocap playback start <recording|.scene> [loop]`
+- `/mocap playback list`, `stop <id>`, `stopall`
+- `/mocap playback freeze <id>`, `unfreeze <id>`, `end-freeze <id>`
+- `/mocap playback low-lag <id> <on|off>`
+- `/mocap playback nametags <id> <hide|show>`
+- `/mocap customize names <scene> <comma-separated-names>`
+- `/mocap customize skins <scene> <comma-separated-profile-names>`
+- `/mocap customize name <scene> <element-index> <player-name>`
+- `/mocap formation add <scene> <recording> <rows> <columns> <spacing>`
+- `/mocap copy scene <source> <target>`
+- `/mocap info`, `/mocap help`, `/mocap settings`
+
+The full upstream per-executor playback modifier context and upstream settings registry are not implemented in the Paper port yet; those commands show a limitation message rather than pretending the feature is active.
+
+## Known compatibility limits
+
+Paper Mannequins are not fake `ServerPlayer` entities. The plugin visualizes supported movement/rotation/pose, basic item IDs, scene transformations, supported start delays, name visibility, loops and playback controls. Block edits/mining, chat, entity add/remove/mount, hits/swings, arbitrary item components/NBT and custom extension actions aren't executed. Custom PNG/MineSkin skin injection, embedded signed skin properties, every scene-center mode and player-as-entity transforms are not fully ported. `player_skin from_player` uses Paper's resolvable profile API and depends on Paper/Mojang services. Low-lag is an immovability toggle, not a measured performance guarantee.
+
+## Verification
+
+CI runs Java 21 compilation, selected parser/scene JUnit tests, JAR integrity/descriptor/entrypoint checks, source packaging and SHA-256 manifests. This does not replace live tests on a backup Paper 1.21.11 world. Runtime checks for plugin startup, recordings and scenes, profile lookup, delayed/nested playback, 10/30/60-second recordings looping for 30 minutes, cleanup and multi-actor performance remain required. The 500 mannequin limit is a safety cap, not a performance guarantee.
