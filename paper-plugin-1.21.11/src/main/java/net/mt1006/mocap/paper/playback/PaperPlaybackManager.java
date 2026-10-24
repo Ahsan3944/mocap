@@ -327,14 +327,22 @@ public final class PaperPlaybackManager {
 
         private void update(int tick) {
             List<MocapRecordingParser.Frame> frames = recording.frames();
+            int previousFrameIndex = frameIndex;
             while (frameIndex + 1 < frames.size() && frames.get(frameIndex + 1).tick() <= tick) frameIndex++;
             if (frameIndex < 0) frameIndex = 0;
-            if (frameIndex < frames.size()) apply(frames.get(frameIndex), true);
+            // Frames are snapshots of state changes. Avoid teleporting and reapplying equipment
+            // on every server tick when the current keyframe has not changed.
+            if (frameIndex != previousFrameIndex && frameIndex < frames.size()) apply(frames.get(frameIndex), true);
         }
 
         private void resetForLoop() {
-            frameIndex = -1;
-            if (!recording.frames().isEmpty()) apply(recording.frames().get(0), true);
+            List<MocapRecordingParser.Frame> frames = recording.frames();
+            if (frames.isEmpty()) {
+                frameIndex = -1;
+                return;
+            }
+            frameIndex = 0;
+            apply(frames.get(0), true);
         }
 
         private Mannequin mannequin() { return mannequin; }
