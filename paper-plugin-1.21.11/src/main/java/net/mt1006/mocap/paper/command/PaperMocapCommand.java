@@ -345,7 +345,9 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.WHITE + "/mocap scenes modify <scene> <element> <property> <values...>");
         sender.sendMessage(ChatColor.WHITE + "/mocap scenes <list [scene]|info <scene> [element]>");
         sender.sendMessage(ChatColor.WHITE + "/mocap scenes play <recording|.scene> [loop]");
-        sender.sendMessage(ChatColor.GRAY + "Modifiers: player_name, player_skin, time, transformations.");
+        sender.sendMessage(ChatColor.GRAY + "modify is the original-style per-element property tree: player_name/player_skin/time/transformations.");
+        sender.sendMessage(ChatColor.GRAY + "customize is an UltraOP shortcut for bulk names/skins/equipment and is not a replacement for modify.");
+        sender.sendMessage(ChatColor.GRAY + "For numeric values, TAB shows a bracketed argument hint; replace it with a real number before submitting.");
         sender.sendMessage(ChatColor.GRAY + "Use /mocap scenes <action> then press TAB to explore arguments.");
         sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     }
@@ -448,13 +450,17 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "           MOCAP PLAYBACK");
         if (upstreamSyntax) {
             sender.sendMessage(ChatColor.WHITE + "/mocap playing start <recording|.scene> [<player_name>] [skin_from_player <profile>]");
-            sender.sendMessage(ChatColor.WHITE + "/mocap playing stop <id> | stop_all [including_others|excluding_others] | list");
+            sender.sendMessage(ChatColor.WHITE + "/mocap playing stop <playback-id> | stop_all [including_others|excluding_others] | list");
             sender.sendMessage(ChatColor.WHITE + "/mocap playing modifiers <list|reset|set|add_to>");
         } else {
             sender.sendMessage(ChatColor.WHITE + "/mocap playback start <recording|.scene> [loop]");
-            sender.sendMessage(ChatColor.WHITE + "/mocap playback <list|stop <id>|stopall|freeze <id>|unfreeze <id>|end-freeze <id>>");
-            sender.sendMessage(ChatColor.WHITE + "/mocap playback <low-lag <id> <on|off>|nametags <id> <hide|show>>");
+            sender.sendMessage(ChatColor.WHITE + "/mocap playback <list|stop <playback-id>|stopall|freeze <playback-id>|unfreeze <playback-id>|end-freeze <playback-id>>");
+            sender.sendMessage(ChatColor.WHITE + "/mocap playback <low-lag <playback-id> <on|off>|nametags <playback-id> <hide|show>>");
         }
+        sender.sendMessage(ChatColor.YELLOW + "ID GUIDE");
+        sender.sendMessage(ChatColor.GRAY + "The number offered after stop/freeze/nametags is the active playback ID—not a player name or actor index.");
+        sender.sendMessage(ChatColor.GRAY + "Use /mocap playback list; each line starts with the playback ID and then shows the scene, actor count, and tick.");
+        sender.sendMessage(ChatColor.GRAY + "For apply-element equipment, actor-index is a separate one-based number within that playback.");
         sender.sendMessage(ChatColor.GRAY + "Paper playback uses Mannequin actors; unsupported original player/packet actions remain unavailable.");
         sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     }
@@ -855,9 +861,11 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.WHITE + "/mocap playback <low-lag <id> <on|off>|nametags <id> <hide|show>>");
         sender.sendMessage(ChatColor.YELLOW + "CUSTOMIZE / FORMATION");
         sender.sendMessage(ChatColor.WHITE + "/mocap customize <names|skins|name|equipment> ...");
-        sender.sendMessage(ChatColor.WHITE + "/mocap formation add <scene> <recording> <rows> <columns> <spacing>");
+        sender.sendMessage(ChatColor.GRAY + "  scenes modify is the upstream per-element modifier tree; customize is the UltraOP shortcut for bulk names/skins/equipment.");
+        sender.sendMessage(ChatColor.WHITE + "/mocap formation add <scene-name> <recording-name> <rows:1-1000> <columns:1-1000> <spacing-blocks:0.5-128>");
         sender.sendMessage(ChatColor.WHITE + "/mocap copy scene <source> <target>");
-        sender.sendMessage(ChatColor.WHITE + "/mocap settings");
+        sender.sendMessage(ChatColor.WHITE + "/mocap settings <recording|playback|advanced> [<setting> [<value>]]");
+        sender.sendMessage(ChatColor.GRAY + "  Settings lists original field names and marks each field as supported or upstream-only in this Paper port.");
         sender.sendMessage(ChatColor.WHITE + "/mocap info");
         sender.sendMessage(ChatColor.GRAY + "Use TAB or /mocap <group> help for group-specific arguments.");
         sender.sendMessage(ChatColor.GRAY + "Management permission: " + ChatColor.YELLOW + "mocap.admin");
