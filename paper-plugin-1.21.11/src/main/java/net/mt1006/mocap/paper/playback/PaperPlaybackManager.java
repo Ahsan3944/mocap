@@ -248,6 +248,7 @@ public final class PaperPlaybackManager {
         if (s == null) return false;
         for (Actor actor : s.actors) {
             actor.equipmentOverride = preset;
+            actor.armorOverride = null;
             actor.armorRemovedOverride = false;
             EquipmentPresetStore.apply(actor.mannequin(), preset);
         }
@@ -259,6 +260,7 @@ public final class PaperPlaybackManager {
         if (s == null || oneBasedActorIndex < 1 || oneBasedActorIndex > s.actors.size()) return false;
         Actor actor = s.actors.get(oneBasedActorIndex - 1);
         actor.equipmentOverride = preset;
+        actor.armorOverride = null;
         actor.armorRemovedOverride = false;
         EquipmentPresetStore.apply(actor.mannequin(), preset);
         return true;
@@ -269,6 +271,7 @@ public final class PaperPlaybackManager {
         Session session = sessions.get(id);
         if (session == null) return false;
         for (Actor actor : session.actors) {
+            actor.armorOverride = null;
             actor.armorRemovedOverride = true;
             EquipmentPresetStore.removeArmor(actor.mannequin());
         }
@@ -280,6 +283,7 @@ public final class PaperPlaybackManager {
         Session session = sessions.get(id);
         if (session == null || oneBasedActorIndex < 1 || oneBasedActorIndex > session.actors.size()) return false;
         Actor actor = session.actors.get(oneBasedActorIndex - 1);
+        actor.armorOverride = null;
         actor.armorRemovedOverride = true;
         EquipmentPresetStore.removeArmor(actor.mannequin());
         return true;
@@ -311,9 +315,10 @@ public final class PaperPlaybackManager {
         Random random = new Random();
         for (Actor actor : session.actors) {
             EquipmentPresetStore.Preset selected = candidates.get(random.nextInt(candidates.size()));
-            actor.equipmentOverride = selected;
+            actor.equipmentOverride = null;
+            actor.armorOverride = selected;
             actor.armorRemovedOverride = false;
-            EquipmentPresetStore.apply(actor.mannequin(), selected);
+            EquipmentPresetStore.applyArmorOnly(actor.mannequin(), selected);
         }
         return true;
     }
@@ -382,6 +387,7 @@ public final class PaperPlaybackManager {
         private int frameIndex = -1;
         private boolean started;
         private EquipmentPresetStore.Preset equipmentOverride;
+        private EquipmentPresetStore.Preset armorOverride;
         private boolean armorRemovedOverride;
 
         private Actor(MocapSceneStore.ActorSpec spec, MocapRecordingParser.Recording recording, Mannequin mannequin,
@@ -407,6 +413,7 @@ public final class PaperPlaybackManager {
             if (applyEquipment) applyEquipment(mannequin, frame.equipment());
             // User-selected presets override recorded equipment on every frame and after loops.
             if (equipmentOverride != null) EquipmentPresetStore.apply(mannequin, equipmentOverride);
+            if (armorOverride != null) EquipmentPresetStore.applyArmorOnly(mannequin, armorOverride);
             if (armorRemovedOverride) EquipmentPresetStore.removeArmor(mannequin);
         }
 
