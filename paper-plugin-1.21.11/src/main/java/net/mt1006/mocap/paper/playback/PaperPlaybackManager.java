@@ -315,7 +315,6 @@ public final class PaperPlaybackManager {
         Random random = new Random();
         for (Actor actor : session.actors) {
             EquipmentPresetStore.Preset selected = candidates.get(random.nextInt(candidates.size()));
-            actor.equipmentOverride = null;
             actor.armorOverride = selected;
             actor.armorRemovedOverride = false;
             EquipmentPresetStore.applyArmorOnly(actor.mannequin(), selected);
