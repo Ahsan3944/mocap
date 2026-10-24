@@ -5,7 +5,6 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
-import net.mt1006.mocap.api.v1.io.CommandInfo;
 import net.mt1006.mocap.command.CommandUtils;
 import net.mt1006.mocap.command.io.FullCommandInfo;
 import net.mt1006.mocap.mocap.files.EquipmentPresetManager;
@@ -116,7 +115,7 @@ public final class EquipmentCommand
 		return info.sendSuccess("equipment_preset.randomized");
 	}
 
-	private static PlaybackRoot findPlayback(CommandInfo info)
+	private static PlaybackRoot findPlayback(FullCommandInfo info)
 	{
 		String id = info.getString("playback_id");
 		PlaybackRoot playback = PlaybackManager.findPlayback(info, id, null);

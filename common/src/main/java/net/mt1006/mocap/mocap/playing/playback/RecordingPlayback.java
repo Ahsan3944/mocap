@@ -247,7 +247,6 @@ public class RecordingPlayback extends Playback
 	@Override public void setLowLagMode(boolean enabled)
 	{
 		lowLagMode = enabled;
-		ctx.getMainEntity().setNoPhysics(enabled);
 		if (ctx.getMainEntity() instanceof FakePlayer fakePlayer) { fakePlayer.setStaticMode(enabled); }
 	}
 
@@ -334,7 +333,6 @@ public class RecordingPlayback extends Playback
 		ctx.resetMainEntityForLoop();
 		if (lowLagMode)
 		{
-			ctx.getMainEntity().setNoPhysics(true);
 			if (ctx.getMainEntity() instanceof FakePlayer fakePlayer) { fakePlayer.setStaticMode(true); }
 		}
 		applyEquipmentOverride();

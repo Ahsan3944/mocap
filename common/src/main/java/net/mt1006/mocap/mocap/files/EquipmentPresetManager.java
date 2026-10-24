@@ -80,7 +80,7 @@ public final class EquipmentPresetManager
 
 		try (FileReader reader = new FileReader(file))
 		{
-			JsonObject json = JsonParser.parseReader(reader).getAsJsonObject();
+			JsonObject json = new JsonParser().parse(reader).getAsJsonObject();
 			Preset preset = new Preset();
 			DynamicOps<Tag> ops = server.registryAccess().createSerializationContext(NbtOps.INSTANCE);
 			for (EquipmentSlot slot : SLOTS)
