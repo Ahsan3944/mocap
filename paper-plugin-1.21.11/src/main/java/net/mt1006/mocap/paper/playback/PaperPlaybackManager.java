@@ -290,9 +290,20 @@ public final class PaperPlaybackManager {
     }
 
     public boolean randomizePresets(String id, String group) throws IOException {
+        Session session = sessions.get(id);
+        if (session == null) return false;
         List<String> names = equipment.list(group);
         if (names.isEmpty()) throw new IOException("No presets found in group " + group + ".");
-        return mixPresets(id, group, names);
+        List<EquipmentPresetStore.Preset> candidates = new ArrayList<>();
+        for (String name : names) candidates.add(equipment.get(group, name));
+        Random random = new Random();
+        for (Actor actor : session.actors) {
+            EquipmentPresetStore.Preset selected = candidates.get(random.nextInt(candidates.size()));
+            actor.armorOverride = selected;
+            actor.armorRemovedOverride = false;
+            EquipmentPresetStore.applyArmorOnly(actor.mannequin(), selected);
+        }
+        return true;
     }
 
     /** Randomly assign one of the selected complete preset sets to each actor in the playback. */
