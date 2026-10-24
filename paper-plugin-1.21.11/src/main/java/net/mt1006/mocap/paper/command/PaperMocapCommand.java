@@ -18,11 +18,9 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Hierarchical command surface for the Paper port.
- *
- * Recording capture is not available in this Paper visual-playback port. The
- * recording group therefore reports that limitation explicitly instead of
- * implying that a recording was started.
+ * Hierarchical Paper command surface aligned to upstream Mocap groups.
+ * Paper-specific limitations are reported explicitly rather than silently
+ * pretending unsupported game actions are available.
  */
 public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
     private final MocapPaperPlugin plugin;
@@ -57,8 +55,9 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
                 case "recording" -> recordingCommand(sender, args);
                 case "recordings" -> recordingsCommand(sender, args);
                 case "scene", "scenes" -> sceneCommand(sender, args);
-                case "playback", "play", "playhere", "list", "stop", "stopall", "freeze", "unfreeze",
-                     "end_freeze", "low_lag", "nametags" -> playbackCommand(sender, args);
+                case "playing", "playback", "play", "playhere", "list", "stop", "stopall", "stop_all", "freeze", "unfreeze",
+                     "end_freeze", "low_lag", "nametags", "modifiers" -> playbackCommand(sender, args);
+                case "settings" -> settingsCommand(sender, args);
                 case "customize", "random_names", "random_skins", "set_name", "equipment" -> customizeCommand(sender, args);
                 case "formation" -> formationCommand(sender, args);
                 case "copy" -> copyCommand(sender, args);
@@ -351,20 +350,45 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
     private void playbackCommand(CommandSender sender, String[] args) throws IOException {
         String action = args[0].toLowerCase(Locale.ROOT);
         int offset = 0;
-        if (eq(action, "playback")) {
+        boolean upstreamPlayingSyntax = eq(action, "playing");
+        if (eq(action, "playing") || eq(action, "playback")) {
             if (args.length == 1 || eq(args[1], "help")) {
-                sender.sendMessage("Playback: start <recording|.scene> [loop] | list | stop <id> | stopall | freeze <id> | unfreeze <id> | end-freeze <id> | low-lag <id> <on|off> | nametags <id> <hide|show>");
+                playbackHelp(sender, upstreamPlayingSyntax);
                 return;
             }
             action = args[1].toLowerCase(Locale.ROOT);
             offset = 1;
             if (eq(action, "start")) action = "play";
+            if (eq(action, "stop_all")) action = "stopall";
         }
         String[] a = offset == 0 ? args : shift(args, 1, action);
         switch (action) {
             case "play" -> {
-                if (a.length < 2) { usage(sender, "/mocap playback start <recording|.scene> [loop]"); return; }
-                startPlayback(sender, a[1], a.length > 2 && eq(a[2], "loop"), false);
+                if (a.length < 2) {
+                    usage(sender, upstreamPlayingSyntax
+                            ? "/mocap playing start <recording|.scene> [<player_name>] [<skin_from_player|skin_from_file|skin_from_mineskin> <skin_value>]"
+                            : "/mocap playback start <recording|.scene> [loop]");
+                    return;
+                }
+                if (upstreamPlayingSyntax) {
+                    String displayName = a.length >= 3 && !a[2].equals("-") ? a[2] : null;
+                    String profileName = null;
+                    if (a.length >= 4) {
+                        String skinMode = a[3].toLowerCase(Locale.ROOT);
+                        if (skinMode.equals("skin_from_player") || skinMode.equals("from_player")) {
+                            if (a.length < 5) { usage(sender, "/mocap playing start <recording|.scene> [<player_name>] skin_from_player <profile_name>"); return; }
+                            profileName = a[4];
+                        } else if (skinMode.equals("skin_from_file") || skinMode.equals("skin_from_mineskin")
+                                || skinMode.equals("from_file") || skinMode.equals("from_mineskin")) {
+                            throw new IOException("This Paper port currently resolves player-name skins only. File/MineSkin skins are not yet implemented.");
+                        } else if (!skinMode.equals("default")) {
+                            throw new IOException("Unknown skin modifier: " + a[3] + ". Use skin_from_player <profile_name>.");
+                        }
+                    }
+                    startPlayback(sender, a[1], false, false, displayName, profileName);
+                } else {
+                    startPlayback(sender, a[1], a.length > 2 && eq(a[2], "loop"), false);
+                }
             }
             case "playhere" -> {
                 if (a.length < 2) { usage(sender, "/mocap playhere <recording|.scene> [loop]"); return; }
@@ -377,10 +401,10 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage("Active mannequin actors: " + playbacks.activeActors() + "/" + PaperPlaybackManager.MAX_ACTIVE_MANNEQUINS);
             }
             case "stop" -> {
-                if (a.length < 2) { usage(sender, "/mocap playback stop <id>"); return; }
+                if (a.length < 2) { usage(sender, "/mocap playing stop <id>"); return; }
                 sender.sendMessage(playbacks.stop(a[1]) ? "Stopped Mocap playback " + a[1] + "." : "Playback ID not found.");
             }
-            case "stopall" -> sender.sendMessage("Stopped " + playbacks.stopAll() + " Mocap playback(s).");
+            case "stopall", "stop_all" -> sender.sendMessage("Stopped " + playbacks.stopAll() + " Mocap playback(s).");
             case "freeze", "unfreeze" -> {
                 if (a.length < 2) { usage(sender, "/mocap playback " + action + " <id>"); return; }
                 sender.sendMessage(playbacks.freeze(a[1], eq(action, "freeze")) ? (eq(action, "freeze") ? "Playback frozen." : "Playback resumed.") : "Playback ID not found.");
@@ -401,8 +425,43 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
                 };
                 sender.sendMessage(playbacks.nameTags(a[1], hidden) ? "Name tags updated." : "Playback ID not found.");
             }
+            case "modifiers" -> playbackModifiersHelp(sender, a);
             default -> sender.sendMessage("Unknown playback action: " + action);
         }
+    }
+
+    private void playbackModifiersHelp(CommandSender sender, String[] args) {
+        if (args.length == 1 || eq(args[1], "help")) {
+            sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "PLAYBACK MODIFIERS");
+            sender.sendMessage(ChatColor.WHITE + "/mocap playing modifiers <list|reset|set|add_to>");
+            sender.sendMessage(ChatColor.GRAY + "Paper does not yet implement upstream's per-executor modifier context. Store per-actor modifiers in /mocap scenes modify instead.");
+            return;
+        }
+        sender.sendMessage(ChatColor.RED + "Dynamic playback modifier context is not implemented in the Paper port yet. Use /mocap scenes modify <scene> <element> <property> <values...>.");
+    }
+
+    private static void playbackHelp(CommandSender sender, boolean upstreamSyntax) {
+        sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "           MOCAP PLAYBACK");
+        if (upstreamSyntax) {
+            sender.sendMessage(ChatColor.WHITE + "/mocap playing start <recording|.scene> [<player_name>] [skin_from_player <profile>]");
+            sender.sendMessage(ChatColor.WHITE + "/mocap playing stop <id> | stop_all [including_others|excluding_others] | list");
+            sender.sendMessage(ChatColor.WHITE + "/mocap playing modifiers <list|reset|set|add_to>");
+        } else {
+            sender.sendMessage(ChatColor.WHITE + "/mocap playback start <recording|.scene> [loop]");
+            sender.sendMessage(ChatColor.WHITE + "/mocap playback <list|stop <id>|stopall|freeze <id>|unfreeze <id>|end-freeze <id>>");
+            sender.sendMessage(ChatColor.WHITE + "/mocap playback <low-lag <id> <on|off>|nametags <id> <hide|show>>");
+        }
+        sender.sendMessage(ChatColor.GRAY + "Paper playback uses Mannequin actors; unsupported original player/packet actions remain unavailable.");
+        sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    }
+
+    private void settingsCommand(CommandSender sender, String[] args) {
+        sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "MOCAP SETTINGS");
+        sender.sendMessage(ChatColor.GRAY + "The full upstream setting registry is not ported into this Paper plugin.");
+        sender.sendMessage(ChatColor.WHITE + "Current Paper limits: Java 21, movement/rotation/pose recording, max 500 active mannequin actors.");
+        sender.sendMessage(ChatColor.GRAY + "Playback controls: /mocap playback low-lag, /mocap playback nametags.");
+        sender.sendMessage(ChatColor.GRAY + "Full upstream settings remain available in the original Mocap mod.");
     }
 
     private void customizeCommand(CommandSender sender, String[] args) throws IOException {
