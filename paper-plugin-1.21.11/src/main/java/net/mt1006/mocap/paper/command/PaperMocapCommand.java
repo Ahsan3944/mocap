@@ -867,9 +867,9 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             if (args.length == 2) return filter(List.of("help", "add"), args[1]);
             if (args.length == 3 && args[1].equalsIgnoreCase("add")) return filter(scenes.listScenes(), args[2]);
             if (args.length == 4 && args[1].equalsIgnoreCase("add")) return filter(scenes.listRecordings(), args[3]);
-            if (args.length == 5 && args[1].equalsIgnoreCase("add")) return filter(List.of("5", "3", "1"), args[4]);
-            if (args.length == 6 && args[1].equalsIgnoreCase("add")) return filter(List.of("10", "5", "3"), args[5]);
-            if (args.length == 7 && args[1].equalsIgnoreCase("add")) return filter(List.of("2", "3", "4"), args[6]);
+            if (args.length == 5 && args[1].equalsIgnoreCase("add")) return filter(List.of("<rows:1-1000>"), args[4]);
+            if (args.length == 6 && args[1].equalsIgnoreCase("add")) return filter(List.of("<columns:1-1000>"), args[5]);
+            if (args.length == 7 && args[1].equalsIgnoreCase("add")) return filter(List.of("<spacing-blocks:0.5-128>"), args[6]);
             return List.of();
         }
         if (root.equals("copy")) {
@@ -878,7 +878,27 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             if (args.length == 4 && args[1].equalsIgnoreCase("scene")) return filter(List.of("new_scene", "scene_copy"), args[3]);
             return List.of();
         }
-        if (root.equals("settings")) return args.length == 2 ? filter(List.of("help", "info", "list"), args[1]) : List.of();
+        if (root.equals("settings")) return settingsSuggestions(args);
+        return List.of();
+    }
+
+    private List<String> settingsSuggestions(String[] args) {
+        if (args.length == 2) return filter(List.of("help", "info", "list", "recording", "playback", "advanced"), args[1]);
+        if (args.length == 3) {
+            String action = args[1].toLowerCase(Locale.ROOT);
+            if (action.equals("list") || action.equals("info")) return filter(settings.groups(), args[2]);
+            if (settings.groups().contains(action)) return filter(settings.fields(action).stream().map(PaperSettingsStore.Definition::name).toList(), args[2]);
+            return List.of();
+        }
+        if (args.length == 4 && settings.groups().contains(args[1].toLowerCase(Locale.ROOT))) {
+            PaperSettingsStore.Definition def = settings.definition(args[1], args[2]);
+            if (def == null || !def.supported()) return List.of();
+            if (def.type() == PaperSettingsStore.Type.BOOLEAN) return filter(List.of("true", "false"), args[3]);
+            if (def.type() == PaperSettingsStore.Type.DOUBLE) return filter(List.of("0.1", "0.5", "1.0", "1.5", "2.0", "4.0"), args[3]);
+        }
+        if (args.length == 4 && args[1].equalsIgnoreCase("info")) {
+            return filter(settings.fields(args[2]).stream().map(PaperSettingsStore.Definition::name).toList(), args[3]);
+        }
         return List.of();
     }
 
@@ -912,7 +932,7 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         }
         if (List.of("add_to", "addto", "add-to").contains(action)) {
             if (args.length == 4) return combineAndFilter(scenes.listRecordings(), scenes.listScenes(), args[3]);
-            if (args.length == 5) return filter(List.of("0", "1", "2", "5"), args[4]);
+            if (args.length == 5) return filter(List.of("<wait-on-start-seconds:0-36000>"), args[4]);
             if (args.length == 6) return profileNameSuggestions(args[5]);
             if (args.length == 7) return filter(List.of("default", "skin_from_player", "skin_from_file", "skin_from_mineskin"), args[6]);
             if (args.length == 8) {
@@ -933,9 +953,9 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         if (action.equals("formation")) {
             if (args.length == 4 && args[2].equalsIgnoreCase("add")) return filter(scenes.listScenes(), args[3]);
             if (args.length == 5 && args[2].equalsIgnoreCase("add")) return filter(scenes.listRecordings(), args[4]);
-            if (args.length == 6 && args[2].equalsIgnoreCase("add")) return filter(List.of("5", "3", "1"), args[5]);
-            if (args.length == 7 && args[2].equalsIgnoreCase("add")) return filter(List.of("10", "5", "3"), args[6]);
-            if (args.length == 8 && args[2].equalsIgnoreCase("add")) return filter(List.of("2", "3", "4"), args[7]);
+            if (args.length == 6 && args[2].equalsIgnoreCase("add")) return filter(List.of("<rows:1-1000>"), args[5]);
+            if (args.length == 7 && args[2].equalsIgnoreCase("add")) return filter(List.of("<columns:1-1000>"), args[6]);
+            if (args.length == 8 && args[2].equalsIgnoreCase("add")) return filter(List.of("<spacing-blocks:0.5-128>"), args[7]);
         }
         return List.of();
     }
@@ -956,15 +976,19 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         if (property.equals("time")) {
             if (args.length == 6) return filter(List.of("start_delay", "wait_on_start", "wait_on_end", "wait_for_parent_end", "loop"), args[5]);
             if (args.length == 7 && List.of("wait_for_parent_end", "loop").contains(args[5].toLowerCase(Locale.ROOT))) return filter(List.of("true", "false"), args[6]);
-            if (args.length == 7 && List.of("start_delay", "wait_on_start", "wait_on_end").contains(args[5].toLowerCase(Locale.ROOT))) return filter(List.of("0", "1", "2", "5"), args[6]);
+            if (args.length == 7 && List.of("start_delay", "wait_on_start", "wait_on_end").contains(args[5].toLowerCase(Locale.ROOT))) {
+                return filter(List.of("<seconds:0-36000>"), args[6]);
+            }
         }
         if (property.equals("transformations")) {
             if (args.length == 6) return filter(List.of("offset", "rotation", "mirror", "scale"), args[5]);
             if (args.length == 7 && args[5].equalsIgnoreCase("mirror")) return filter(List.of("none", "x", "z", "xz"), args[6]);
             if (args.length == 7 && args[5].equalsIgnoreCase("scale")) return filter(List.of("of_player", "of_scene"), args[6]);
-            if (args.length == 8 && args[5].equalsIgnoreCase("scale")) return filter(List.of("0.5", "1", "2"), args[7]);
-            if (args.length == 7 && List.of("rotation", "offset").contains(args[5].toLowerCase(Locale.ROOT))) return filter(List.of("0", "90", "180", "270"), args[6]);
-            if (args.length >= 7 && args[5].equalsIgnoreCase("offset")) return filter(List.of("0", "1", "-1"), args[args.length - 1]);
+            if (args.length == 8 && args[5].equalsIgnoreCase("scale")) return filter(List.of("<scale:0-100>"), args[7]);
+            if (args.length == 7 && args[5].equalsIgnoreCase("rotation")) return filter(List.of("<degrees>"), args[6]);
+            if (args.length == 7 && args[5].equalsIgnoreCase("offset")) return filter(List.of("<x-blocks>"), args[6]);
+            if (args.length == 8 && args[5].equalsIgnoreCase("offset")) return filter(List.of("<y-blocks>"), args[7]);
+            if (args.length == 9 && args[5].equalsIgnoreCase("offset")) return filter(List.of("<z-blocks>"), args[8]);
         }
         return List.of();
     }
