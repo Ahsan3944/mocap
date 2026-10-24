@@ -624,6 +624,150 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
                 + MocapSceneStore.normalizeSceneName(sceneName) + " element " + elementIndex + ".");
     }
 
+    private void profileLibraryCommand(CommandSender sender, String[] args, String kind) throws IOException {
+        if (args.length == 1 || eq(args[1], "help")) {
+            profileLibraryHelp(sender, kind);
+            return;
+        }
+        String action = args[1].toLowerCase(Locale.ROOT);
+        switch (action) {
+            case "groups" -> {
+                List<String> groups = profileLibraries.listGroups(kind);
+                sender.sendMessage(groups.isEmpty()
+                        ? ChatColor.YELLOW + "No " + kind + " groups exist. Use /mocap " + kind + " save <group> <subgroup> <comma,separated,names>."
+                        : ChatColor.GOLD + kind.toUpperCase(Locale.ROOT) + " GROUPS: " + String.join(", ", groups));
+            }
+            case "subgroups" -> {
+                if (args.length < 3) { usage(sender, "/mocap " + kind + " subgroups <group>"); return; }
+                List<String> subgroups = profileLibraries.listSubgroups(kind, args[2]);
+                sender.sendMessage(subgroups.isEmpty()
+                        ? ChatColor.YELLOW + "No subgroups in " + args[2] + ". Save a list with /mocap " + kind + " save " + args[2] + " <subgroup> <comma,separated,names>."
+                        : ChatColor.GOLD + "Subgroups in " + args[2] + ": " + String.join(", ", subgroups));
+            }
+            case "list" -> {
+                if (args.length < 3) {
+                    List<String> groups = profileLibraries.listGroups(kind);
+                    sender.sendMessage(groups.isEmpty() ? "No " + kind + " groups saved." : ChatColor.GOLD + kind.toUpperCase(Locale.ROOT) + " GROUPS: " + String.join(", ", groups));
+                    return;
+                }
+                List<ProfileLibraryStore.Entry> entries = args.length >= 4
+                        ? profileLibraries.list(kind, args[2], args[3]) : profileLibraries.list(kind, args[2]);
+                if (entries.isEmpty()) {
+                    sender.sendMessage(ChatColor.YELLOW + "No " + kind + " entries found for " + args[2]
+                            + (args.length >= 4 ? "/" + args[3] : "") + ".");
+                    return;
+                }
+                sender.sendMessage(ChatColor.GOLD + kind.toUpperCase(Locale.ROOT) + " • " + args[2]
+                        + (args.length >= 4 ? "/" + args[3] : "") + " (" + entries.size() + " entries)");
+                for (int i = 0; i < Math.min(entries.size(), 60); i++) {
+                    ProfileLibraryStore.Entry entry = entries.get(i);
+                    sender.sendMessage(ChatColor.GRAY + "[" + entry.id() + "] " + ChatColor.WHITE + entry.value());
+                }
+                if (entries.size() > 60) sender.sendMessage(ChatColor.GRAY + "... and " + (entries.size() - 60) + " more. Use a subgroup or /mocap " + kind + " info.");
+            }
+            case "save", "add" -> {
+                if (args.length < 5) {
+                    usage(sender, "/mocap " + kind + " " + action + " <group> <subgroup> <comma,separated,official,names>");
+                    sender.sendMessage(ChatColor.GRAY + "Paste a large comma-separated list as one message; up to 3,000 unique names per subgroup.");
+                    return;
+                }
+                String raw = String.join(" ", Arrays.copyOfRange(args, 4, args.length));
+                List<ProfileLibraryStore.Entry> changed = action.equals("save")
+                        ? profileLibraries.save(kind, args[2], args[3], List.of(raw))
+                        : profileLibraries.add(kind, args[2], args[3], List.of(raw));
+                sender.sendMessage(ChatColor.GREEN + (action.equals("save") ? "Saved/replaced " : "Added ")
+                        + changed.size() + " " + kind + " entry/entries in " + args[2] + "/" + args[3] + ".");
+                if (!changed.isEmpty()) {
+                    ProfileLibraryStore.Entry first = changed.get(0);
+                    ProfileLibraryStore.Entry last = changed.get(changed.size() - 1);
+                    sender.sendMessage(ChatColor.GRAY + "Entry IDs: " + first.id()
+                            + (changed.size() > 1 ? "–" + last.id() : "") + ". Use /mocap " + kind + " list " + args[2] + " " + args[3] + " to review.");
+                } else {
+                    sender.sendMessage(ChatColor.YELLOW + "No new entries were needed; duplicate values were skipped.");
+                }
+            }
+            case "remove" -> {
+                if (args.length < 5) { usage(sender, "/mocap " + kind + " remove <group> <subgroup> <entry-id-or-exact-name>"); return; }
+                boolean removed = profileLibraries.remove(kind, args[2], args[3], args[4]);
+                sender.sendMessage(removed
+                        ? ChatColor.GREEN + "Removed " + kind + " entry " + args[2] + "/" + args[3] + "/" + args[4] + "."
+                        : ChatColor.RED + "No entry ID or exact profile name " + args[4] + " found in " + args[2] + "/" + args[3] + ".");
+            }
+            case "delete" -> {
+                if (args.length < 4) { usage(sender, "/mocap " + kind + " delete <group> <subgroup>"); return; }
+                sender.sendMessage(profileLibraries.delete(kind, args[2], args[3])
+                        ? ChatColor.GREEN + "Deleted " + kind + " subgroup " + args[2] + "/" + args[3] + "."
+                        : ChatColor.RED + "Subgroup not found: " + args[2] + "/" + args[3] + ".");
+            }
+            case "info" -> {
+                if (args.length < 5) { usage(sender, "/mocap " + kind + " info <group> <subgroup> <entry-id>"); return; }
+                for (ProfileLibraryStore.Entry entry : profileLibraries.list(kind, args[2], args[3])) {
+                    if (entry.id().equals(args[4])) {
+                        sender.sendMessage(ChatColor.GOLD + kind.toUpperCase(Locale.ROOT) + " ENTRY");
+                        sender.sendMessage(ChatColor.GRAY + "Group: " + ChatColor.WHITE + args[2]);
+                        sender.sendMessage(ChatColor.GRAY + "Subgroup: " + ChatColor.WHITE + args[3]);
+                        sender.sendMessage(ChatColor.GRAY + "ID: " + ChatColor.AQUA + entry.id());
+                        sender.sendMessage(ChatColor.GRAY + "Official profile name: " + ChatColor.WHITE + entry.value());
+                        return;
+                    }
+                }
+                sender.sendMessage(ChatColor.RED + "Entry ID not found in that subgroup.");
+            }
+            default -> {
+                sender.sendMessage(ChatColor.RED + "Unknown " + kind + " action: " + action);
+                profileLibraryHelp(sender, kind);
+            }
+        }
+    }
+
+    private static void profileLibraryHelp(CommandSender sender, String kind) {
+        sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "       " + kind.toUpperCase(Locale.ROOT) + " LIBRARY");
+        sender.sendMessage(ChatColor.WHITE + "/mocap " + kind + " groups");
+        sender.sendMessage(ChatColor.WHITE + "/mocap " + kind + " subgroups <group>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap " + kind + " list <group> [<subgroup>]");
+        sender.sendMessage(ChatColor.WHITE + "/mocap " + kind + " save <group> <subgroup> <comma,separated,names>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap " + kind + " add <group> <subgroup> <comma,separated,names>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap " + kind + " remove <group> <subgroup> <entry-id-or-exact-name>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap " + kind + " delete <group> <subgroup>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap " + kind + " info <group> <subgroup> <entry-id>");
+        sender.sendMessage(ChatColor.GRAY + "Paste a comma-separated list. Up to 3,000 unique official Mojang player names per subgroup.");
+        sender.sendMessage(ChatColor.GRAY + "IDs remain stable when other entries are removed. Names are checked as official 1–16-character profile names.");
+        sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    }
+
+    private List<String> profileLibrarySuggestions(String[] args, String kind) {
+        if (args.length == 2) return filter(List.of("help", "groups", "subgroups", "list", "save", "add", "remove", "delete", "info"), args[1]);
+        String action = args[1].toLowerCase(Locale.ROOT);
+        if (args.length == 3) {
+            if (action.equals("groups")) return List.of();
+            if (List.of("subgroups", "list", "save", "add", "remove", "delete", "info").contains(action)) {
+                try {
+                    List<String> groups = new ArrayList<>(profileLibraries.listGroups(kind));
+                    if (List.of("save", "add").contains(action)) groups.add("<new-group-name>");
+                    return filter(groups, args[2]);
+                } catch (IOException ignored) { return List.of("<group-name>"); }
+            }
+        }
+        if (args.length == 4) {
+            if (List.of("list", "save", "add", "remove", "delete", "info").contains(action)) {
+                try {
+                    List<String> subgroups = new ArrayList<>(profileLibraries.listSubgroups(kind, args[2]));
+                    if (List.of("save", "add").contains(action)) subgroups.add("<new-subgroup-name>");
+                    return filter(subgroups, args[3]);
+                } catch (IOException ignored) { return List.of("<subgroup-name>"); }
+            }
+        }
+        if (args.length == 5 && List.of("save", "add").contains(action)) return filterOrHint(List.of(), args[4], "<comma,separated,official-profile-names>");
+        if (args.length == 5 && List.of("remove", "info").contains(action)) {
+            try {
+                return filter(profileLibraries.list(kind, args[2], args[3]).stream().map(ProfileLibraryStore.Entry::id).toList(), args[4]);
+            } catch (IOException ignored) { return List.of(); }
+        }
+        if (args.length >= 5 && List.of("save", "add").contains(action)) return filterOrHint(List.of(), args[args.length - 1], "<comma,separated,official-profile-names>");
+        return List.of();
+    }
+
     private void assignProfiles(CommandSender sender, String[] args, boolean skins) throws IOException {
         if (args.length < 3) {
             usage(sender, "/mocap customize " + (skins ? "skins" : "names") + " <scene> <comma,separated,values|auto>");
