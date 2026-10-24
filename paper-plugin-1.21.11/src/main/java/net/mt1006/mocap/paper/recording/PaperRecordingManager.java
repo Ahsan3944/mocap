@@ -44,6 +44,11 @@ public final class PaperRecordingManager {
     }
 
     public String start(Player player, String instantSaveName) throws IOException {
+        return start(player, instantSaveName, null);
+    }
+
+    /** Start a capture with an optional user-selected positive numeric session ID. */
+    public String start(Player player, String instantSaveName, String requestedId) throws IOException {
         if (player == null || !player.isOnline()) throw new IOException("Select an online player to record.");
         if (activeByPlayer.containsKey(player.getUniqueId())) {
             throw new IOException(player.getName() + " is already being recorded (ID " + activeByPlayer.get(player.getUniqueId()) + ").");
@@ -54,12 +59,31 @@ public final class PaperRecordingManager {
                 throw new IOException("Recording already exists: " + safe + ". Choose a different instant-save name.");
             }
         }
-        String id = Integer.toString(nextId++);
-        if (nextId < 1) nextId = 1;
+        String id;
+        if (requestedId != null && !requestedId.isBlank()) {
+            final int parsed;
+            try { parsed = Integer.parseInt(requestedId.trim()); }
+            catch (NumberFormatException e) { throw new IOException("Custom recording session ID must be a positive whole number.", e); }
+            if (parsed < 1) throw new IOException("Custom recording session ID must be greater than zero.");
+            id = Integer.toString(parsed);
+            if (active.containsKey(id) || stopped.containsKey(id)) {
+                throw new IOException("Recording session ID " + id + " is already in use; choose a different ID.");
+            }
+        } else {
+            id = nextAvailableId();
+        }
         Session session = new Session(id, player, instantSaveName);
         active.put(id, session);
         activeByPlayer.put(player.getUniqueId(), id);
         return id;
+    }
+
+    private String nextAvailableId() {
+        while (true) {
+            if (nextId < 1) nextId = 1;
+            String candidate = Integer.toString(nextId++);
+            if (!active.containsKey(candidate) && !stopped.containsKey(candidate)) return candidate;
+        }
     }
 
     private void tick() {
