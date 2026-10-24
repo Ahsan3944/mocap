@@ -275,6 +275,21 @@ public final class PaperPlaybackManager {
     public int activeActors() { return activeActors; }
     public boolean exists(String id) { return sessions.containsKey(id); }
 
+    /** One-based actor indexes accepted by apply-element for the given active playback. */
+    public List<String> actorIndexes(String id) {
+        Session session = sessions.get(id);
+        if (session == null) return List.of();
+        List<String> indexes = new ArrayList<>(session.actors.size());
+        for (int i = 1; i <= session.actors.size(); i++) indexes.add(Integer.toString(i));
+        return List.copyOf(indexes);
+    }
+
+    /** Current number of mannequin actors in a playback session, or zero if the ID is unknown. */
+    public int actorCount(String id) {
+        Session session = sessions.get(id);
+        return session == null ? 0 : session.actors.size();
+    }
+
     public void shutdown() { stopAll(); }
 
     private void applyEquipment(Mannequin mannequin, String[] itemIds) {
