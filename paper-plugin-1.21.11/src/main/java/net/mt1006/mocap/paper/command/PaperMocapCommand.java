@@ -1027,7 +1027,7 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.GRAY + "5. Play later with /mocap formation play <group-name>. Name/skin assignments can be saved on its backing scene using /mocap customize names|skins.");
         sender.sendMessage(ChatColor.YELLOW + "GAPS AND LIMITS");
         sender.sendMessage(ChatColor.GRAY + "column-gap: side-to-side distance. row-gap: front-to-back distance. Both accept 0–128 blocks.");
-        sender.sendMessage(ChatColor.GRAY + "Rows × columns are limited to 1,000 actors per group; a scene is limited to 5,000 elements.");
+        sender.sendMessage(ChatColor.GRAY + "Rows × columns are limited to 500 playable actors per saved group (Paper playback cap); legacy additions are limited to 1,000 per call.");
         sender.sendMessage(ChatColor.GRAY + "Legacy: /mocap formation add <scene> <recording> <rows> <columns> <spacing> [row-gap].");
         sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     }
@@ -1113,20 +1113,6 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             throw new IOException(argument + " must be between " + min + " and " + max + ".");
         }
         return value;
-    }
-
-    private void copyCommand(CommandSender sender, String[] args) throws IOException {
-        if (args.length == 1 || eq(args[1], "help")) {
-            sender.sendMessage("Copy: scene <source> <target>");
-            return;
-        }
-        if (eq(args[1], "scene")) {
-            if (args.length < 4) { usage(sender, "/mocap copy scene <source> <target>"); return; }
-            scenes.copyScene(args[2], args[3]);
-            sender.sendMessage("Copied scene " + args[2] + " to ." + MocapSceneStore.normalizeSceneName(args[3]) + ".");
-        } else {
-            sender.sendMessage("Unknown copy action: " + args[1]);
-        }
     }
 
     private void equipmentCommand(CommandSender sender, String[] args) throws IOException {
@@ -1438,6 +1424,9 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             }
             if (args.length == 4 && (args[2].equalsIgnoreCase("move") || args[2].equalsIgnoreCase("copy"))) {
                 return sceneNameSuggestions(args[3]);
+            }
+            if (args.length == 5 && args[2].equalsIgnoreCase("move")) {
+                return filter(scenes.sceneElementSuggestions(args[3]), args[4]);
             }
             if (args.length == 5 && args[2].equalsIgnoreCase("copy")) {
                 return filterOrHint(List.of(), args[4], "<new-scene-name>");
