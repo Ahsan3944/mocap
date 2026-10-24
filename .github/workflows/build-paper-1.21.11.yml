@@ -52,7 +52,7 @@ jobs:
           PY
       - name: Prepare complete source ZIP, verification report, and portable checksums
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
@@ -169,6 +169,7 @@ jobs:
             RELEASE_VERIFICATION-*.md.sha256
             !paper-plugin-1.21.11/build/libs/*-sources.jar
       - name: Publish Paper plugin as a GitHub prerelease
+        if: ${{ vars.ENABLE_GITHUB_RELEASES == 'true' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
