@@ -1,28 +1,32 @@
 # Mocap Paper 1.21.11 — UltraOP port
 
-Paper plugin for Java 21. The upstream Mocap command hierarchy is retained where supported: `recording`, `recordings`, `scenes`, `playing`, `settings`, `info`, and `help`. Paper-only playback conveniences live under `playback`, `customize`, and `formation`.
+Target: Paper 1.21.11, Java 21. This is a Paper plugin, not a Fabric/NeoForge mod. The Paper implementation uses Paper Mannequin actors; it does not yet provide full original Mocap action parity.
 
 ## Build and install
 
-From the repository root run:
+From the repository root:
 
 ```sh
 ./gradlew -p paper-plugin-1.21.11 --no-daemon clean test build
 ```
 
-Install `paper-plugin-1.21.11/build/libs/Mocap-PAPER-1.21.11-1.0.0-uop1.jar` in the Paper server's `plugins/` directory. Do not put this plugin JAR in Fabric's `mods/` folder.
+Install the generated JAR from `paper-plugin-1.21.11/build/libs/` into Paper's `plugins/` directory only. Do not install this plugin JAR in Fabric's `mods/` folder.
 
-## Recording
+## Command roots — upstream contract vs Paper implementation
+
+The original source root is `recording`, `recordings`, `scenes`, `playback`, `settings`, `misc`, `info`, and `help`. Source command reference and feature matrix are in `audit/`.
+
+The Paper command exposes a number of compatible roots/aliases, but **not 100% command parity**. Original `settings` groups (typed persisted `recording`, `playback`, `advanced`) are not ported as a registry; `misc` sync/cache refresh/extension commands are not fully implemented; and upstream playback modifier context is not implemented. These gaps are documented explicitly in `PORT_REPORT.md` and the feature matrix. The aliases `playing`, `scene`, `customize`, `formation`, and `copy` are not replacements for canonical upstream routes.
+
+## Paper recording (partial)
 
 - `/mocap recording start [<player|selector>] [<instant-save-name>]`
 - `/mocap recording stop [<id>]`
-- `/mocap recording save <file-name> [<id>]`
+- `/mocap recording save <name> [<id>]`
 - `/mocap recording discard [<id>]`
 - `/mocap recording list [<id>]`
 
-When run by a player, `/mocap recording start` defaults to recording that player. Optional targets accept online player names, comma-separated names, or selectors supported by Paper such as `@a`, `@p`, and `@s`. TAB completion suggests selectors and online player names. The saved Mocap recording header includes the actual recorded player's profile name; playback uses it as the actor display name unless a scene or playback command overrides it.
-
-The Paper recorder captures position, rotation, tick timing, and supported player pose changes. It does **not** currently capture block edits/mining, chat, inventory/equipment changes, damage/combat, entity add/remove/mount, or custom Mocap extension actions. Stopped recordings that are not saved are held in memory only and will be lost on server/plugin restart. The upstream Mod's complete recording engine is not fully ported to Paper.
+This Paper recorder captures position, rotation, tick timing and supported player pose changes, plus the actual recorded profile name in a compatible Mocap v3 header. It does not record block interactions, chat, inventory/equipment changes as timed actions, damage/combat, entity add/remove/mount, or custom extension actions. Unnamed stopped sessions remain in memory and are lost at server/plugin restart.
 
 ## Saved recordings
 
@@ -32,12 +36,10 @@ The Paper recorder captures position, rotation, tick timing, and supported playe
 - `/mocap recordings rename <old-name> <new-name>`
 - `/mocap recordings remove <name>`
 
-Files are stored in the first loaded world's `mocap_files/recordings/` directory.
+## Scene authoring
 
-## Scenes — restored upstream-style workflow
-
-- `/mocap scenes add <scene-name>` — create an empty scene.
-- `/mocap scenes add_to <scene> <recording|.nested-scene> [<wait-on-start-seconds>] [<player-name>] [<skin-source> <skin-value>]` — add a recording or another scene. Prefix a nested scene with a dot, e.g. `.intro`.
+- `/mocap scenes add <scene-name>`
+- `/mocap scenes add_to <scene> <recording|.nested-scene> [<wait-on-start-seconds>] [<player-name>] [<skin-source> <skin-value>]`
 - `/mocap scenes copy <source> <target>`
 - `/mocap scenes rename <old-name> <new-name>`
 - `/mocap scenes remove <scene-name>`
@@ -45,34 +47,12 @@ Files are stored in the first loaded world's `mocap_files/recordings/` directory
 - `/mocap scenes modify <scene> <element-index[-name]> <property> <values...>`
 - `/mocap scenes info <scene> [<element-index[-name]>]`
 - `/mocap scenes list [<scene-name>]`
-- `/mocap scenes play <recording|.scene> [loop]`
+- `/mocap scenes play <recording|.scene> [loop]` (Paper-specific convenience)
 
-Scene modifiers currently supported include:
-- `player_name inherited`, `player_name blank`, `player_name set <name>`
-- `player_skin default`, `player_skin from_player <profile>`
-- `time start_delay <seconds>`, `time wait_on_start <seconds>`, `time wait_on_end <seconds>`, `time wait_for_parent_end <true|false>`, `time loop <true|false>`
-- `transformations offset <x> <y> <z>`, `transformations rotation <degrees>`, `transformations mirror <none|x|z|xz>`, `transformations scale <of_player|of_scene> <scale>`
+The upstream syntax supports a full modifier tree and has further optional `add_to` arguments. This Paper shortcut does not yet reproduce the whole upstream argument surface. Supported scene modifier subset includes player name, name-based profile, selected time fields and selected transformations (offset, rotation, mirror, scene scale). Wait-on-end/wait-for-parent-end scheduling and all transform-center modes are not verified as parity.
 
-For example:
-```text
-/mocap scenes add battle
-/mocap scenes add_to battle alex_run 1.5 Alex skin_from_player Steve
-/mocap scenes add_to battle .intro 0
-/mocap scenes list battle
-/mocap scenes play .battle
-```
+## Paper-only playback conveniences
 
-TAB completion includes known scene names, scene element IDs, recording names, player/profile names, skin sources, time modifiers and transformation modifiers. Profile suggestions include online players, profiles already referenced by scenes, and the common sample names `Steve` and `Alex`.
-
-## Playing and Paper-only controls
-
-Upstream-style playback entry points:
-- `/mocap playing start <recording|.scene> [<player-name>] [skin_from_player <profile>]`
-- `/mocap playing stop <id>`
-- `/mocap playing stop_all`
-- `/mocap playing list`
-
-Additional Paper controls:
 - `/mocap playback start <recording|.scene> [loop]`
 - `/mocap playback list`, `stop <id>`, `stopall`
 - `/mocap playback freeze <id>`, `unfreeze <id>`, `end-freeze <id>`
@@ -81,16 +61,22 @@ Additional Paper controls:
 - `/mocap customize names <scene> <comma-separated-names>`
 - `/mocap customize skins <scene> <comma-separated-profile-names>`
 - `/mocap customize name <scene> <element-index> <player-name>`
+- `/mocap customize equipment ...`
 - `/mocap formation add <scene> <recording> <rows> <columns> <spacing>`
-- `/mocap copy scene <source> <target>`
-- `/mocap info`, `/mocap help`, `/mocap settings`
 
-The full upstream per-executor playback modifier context and upstream settings registry are not implemented in the Paper port yet; those commands show a limitation message rather than pretending the feature is active.
+These additions are not proof that the corresponding Fabric feature behaves identically. Random-name/skin persistence and nested-scene behavior need dedicated regression tests.
 
-## Known compatibility limits
+## Original-versus-Our audit artifacts
 
-Paper Mannequins are not fake `ServerPlayer` entities. The plugin visualizes supported movement/rotation/pose, basic item IDs, scene transformations, supported start delays, name visibility, loops and playback controls. Block edits/mining, chat, entity add/remove/mount, hits/swings, arbitrary item components/NBT and custom extension actions aren't executed. Custom PNG/MineSkin skin injection, embedded signed skin properties, every scene-center mode and player-as-entity transforms are not fully ported. `player_skin from_player` uses Paper's resolvable profile API and depends on Paper/Mojang services. Low-lag is an immovability toggle, not a measured performance guarantee.
+- [Original-versus-Our Feature Matrix](audit/Original-versus-Our-Feature-Matrix.md)
+- [Feature Specification and Verification Plan](audit/ULTRAOP-MOCAP-FEATURE-SPECIFICATION.md)
+- [Original Mocap Command Reference](audit/MOCAP-ORIGINAL-COMMAND-REFERENCE.md)
+- [Technical/Parity Report](PORT_REPORT.md)
+- Official source baseline: https://github.com/mt1006/mc-mocap-mod/tree/26.1
+- Official target-specific release: https://github.com/mt1006/mc-mocap-mod/releases/tag/v1.4-alpha-10%2Bmc1.21.11
 
-## Verification
+## Verification status
 
-CI runs Java 21 compilation, selected parser/scene JUnit tests, JAR integrity/descriptor/entrypoint checks, source packaging and SHA-256 manifests. This does not replace live tests on a backup Paper 1.21.11 world. Runtime checks for plugin startup, recordings and scenes, profile lookup, delayed/nested playback, 10/30/60-second recordings looping for 30 minutes, cleanup and multi-actor performance remain required. The 500 mannequin limit is a safety cap, not a performance guarantee.
+The audited Paper commit's GitHub Actions run passed Java 21 build, selected parser/scene JUnit tests, JAR integrity, plugin descriptor and entrypoint checks. This is **not** a runtime verification pass. A real Paper 1.21.11 server still must be tested for startup, command suggestions, recording/scene playback, nested delays/cleanup, random values staying stable on replay, skins, enchanted equipment, freeze/unfreeze/end-freeze and long-running loops. The reported “short recording stops after minutes” issue is **not considered fixed** without reproducing it and passing the 30-minute loop test.
+
+Paper API cannot reproduce every original fake-player/action behavior. Any unsupported action/settings/API remains explicitly partial or unsupported; this port is not advertised as 100% equivalent.
