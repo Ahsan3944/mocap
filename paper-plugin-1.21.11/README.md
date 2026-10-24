@@ -78,7 +78,12 @@ The upstream syntax supports a full modifier tree and has further optional `add_
 - `/mocap customize equipment remove-element <playback-id> <actor-index>`
 - `/mocap customize equipment mix <playback-id> <group-name> <preset-1> <preset-2> [<preset-3> ...]`
 - `/mocap customize equipment randomize <playback-id> <group-name>` (choose randomly from every set in the group)
-- `/mocap formation add <scene-name> <recording-name> <rows:1-1000> <columns:1-1000> <spacing-blocks:0.5-128>`
+- `/mocap formation add <scene-name> <recording-name> <rows:1-1000> <columns:1-1000> <column-gap:0-128> <row-gap:0-128>`
+- Legacy equal-gap syntax remains supported: `/mocap formation add <scene> <recording> <rows> <columns> <spacing>`
+- `/mocap formation tool` (gives the tagged Blaze Rod placement tool)
+- `/mocap paste <recording-name|.scene-name> [loop]` (after right-clicking a target block with the placement tool)
+- `/mocap paste <recording-name|.scene-name> <x> <y> <z> [loop]` (explicit coordinates in the current world)
+- `/mocap formation paste <recording-name|.scene-name> [loop]` (click-anchor alias)
 - `/mocap settings list [<recording|playback|advanced>]`
 - `/mocap settings <group> <setting>` to inspect default/current value and Paper support status
 - `/mocap settings <group> <setting> <value>` to persist one of the supported Paper settings
@@ -89,7 +94,9 @@ After choosing a library group in `/mocap customize names|skins <scene> <group>`
 
 Equipment autocomplete is group-scoped: after the group is selected, only presets in that group are suggested. `apply-element` and `remove-element` suggest one-based actor indexes from the selected active playback. `remove`/ `remove-element` clear only the four armor slots, leaving hands untouched. `mix` takes at least two selected preset names from one group, randomly assigns one whole armor set per actor, and preserves the current held-item state; `randomize` chooses from every armor set in a group. Full `apply` still applies a complete equipment preset.
 
-Formation meanings: `rows` run behind the source character and `columns` grow to the character's right, relative to the saved recording's starting yaw. The original source actor stays at zero offset at row 1/column 1 instead of being centered. Rows × columns cannot exceed 1,000 actor additions per call and a scene cannot exceed 5,000 elements.
+Formation meanings: `rows` run behind the source character and `columns` grow to the character's right, relative to the saved recording's starting yaw. The original source actor stays at zero offset at row 1/column 1 instead of being centered. `column-gap` controls side-to-side spacing independently from `row-gap`, which controls front-to-back spacing; both accept 0–128 blocks. The old single-`spacing` form remains compatible and uses the same gap on both axes. Rows × columns cannot exceed 1,000 actor additions per call and a scene cannot exceed 5,000 elements.
+
+Placement/paste: run `/mocap formation tool`, then right-click a block with the specifically tagged Blaze Rod. That stores the center of the clicked block's top face as the anchor for the first actor. Run `/mocap paste warrior` or `/mocap paste .battle`; the existing recording or full scene starts at that anchor, and all remaining actors keep their relative scene/formation offsets. To skip the rod, use `/mocap paste warrior 100 65 -20`. Coordinate paste uses the executing player's current world. The anchor is per-player and lasts until the player changes it or disconnects. This starts a playback instance; it does not move a currently running playback or permanently freeze actors as static entities.
 
 Name-tag commands retain the ID-first syntax `/mocap playback nametags <playback-id> <hide|show>`; clearer action-first shortcut: `/mocap playback nametags <hide|show> <playback-id>`. A playback ID is the first number shown by `/mocap playback list`.
 
