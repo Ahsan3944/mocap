@@ -100,6 +100,17 @@ public final class EquipmentPresetStore {
         e.setBoots(copy(preset.boots()));
     }
 
+    /** Removes only the four armor slots; hands and held tools remain untouched. */
+    public static void removeArmor(Mannequin mannequin) {
+        EntityEquipment e = mannequin.getEquipment();
+        if (e == null) return;
+        ItemStack air = new ItemStack(Material.AIR);
+        e.setHelmet(air.clone());
+        e.setChestplate(air.clone());
+        e.setLeggings(air.clone());
+        e.setBoots(air.clone());
+    }
+
     private Path path(String group, String name) throws IOException {
         validate(group); validate(name);
         Path dir = root.resolve(group).normalize();
