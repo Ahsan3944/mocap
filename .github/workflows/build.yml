@@ -25,23 +25,12 @@ jobs:
           distribution: temurin
           java-version: '25'
 
-      - name: Apply compile fixes and persist source changes
+      - name: Verify committed source and Gradle wrapper
         shell: bash
         run: |
           set -euo pipefail
-          test -f compile-fixes.patch
-          git apply --check compile-fixes.patch
-          git apply compile-fixes.patch
-          rm compile-fixes.patch
-          chmod +x ./gradlew
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git update-index --chmod=+x gradlew
-          git add -A
-          if ! git diff --cached --quiet; then
-            git commit -m "Fix compile compatibility and Gradle wrapper permission"
-            git push origin HEAD:main
-          fi
+          test -x ./gradlew
+          test ! -f compile-fixes.patch
           echo "BUILD_SOURCE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Set up Gradle
@@ -60,6 +49,10 @@ jobs:
           test -n "$neoforge_jar"
           unzip -t "$fabric_jar" >/dev/null
           unzip -t "$neoforge_jar" >/dev/null
+          unzip -l "$fabric_jar" | grep -q 'fabric.mod.json'
+          unzip -l "$fabric_jar" | grep -q 'net/mt1006/mocap/MocapModFabric.class'
+          unzip -l "$neoforge_jar" | grep -q 'META-INF/neoforge.mods.toml'
+          unzip -l "$neoforge_jar" | grep -q 'net/mt1006/mocap/MocapModNeoForge.class'
           printf 'Validated: %s\nValidated: %s\n' "$fabric_jar" "$neoforge_jar"
 
       - name: Upload verified JAR build artifact
