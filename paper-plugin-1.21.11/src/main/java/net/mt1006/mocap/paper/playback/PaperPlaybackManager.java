@@ -56,7 +56,7 @@ public final class PaperPlaybackManager {
         for (MocapSceneStore.ActorSpec spec : specs) {
             MocapRecordingParser.Recording recording = parser.parse(spec.recordingPath());
             prepared.add(new PreparedActor(spec, recording));
-            duration = Math.max(duration, recording.durationTicks());
+            duration = Math.max(duration, recording.durationTicks() + spec.delayTicks());
         }
 
         double anchorX = 0, anchorY = 0, anchorZ = 0;
@@ -82,7 +82,8 @@ public final class PaperPlaybackManager {
                         anchorX, anchorY, anchorZ);
                 Mannequin mannequin = world.spawn(initial, Mannequin.class, CreatureSpawnEvent.SpawnReason.CUSTOM, false, m -> {
                     m.setCustomName(displayName);
-                    m.setCustomNameVisible(true);
+                    m.setCustomNameVisible(preparedActor.spec().delayTicks() == 0);
+                    m.setInvisible(preparedActor.spec().delayTicks() > 0);
                     m.setPersistent(false);
                     m.setInvulnerable(true);
                     m.setSilent(true);
@@ -97,7 +98,11 @@ public final class PaperPlaybackManager {
                         anchorX, anchorY, anchorZ);
                 actors.add(actor);
                 requestProfile(actor);
-                actor.apply(preparedActor.recording().frames().get(0), false);
+                if (preparedActor.spec().delayTicks() == 0) {
+                    actor.apply(preparedActor.recording().frames().get(0), false);
+                    actor.frameIndex = 0;
+                    actor.started = true;
+                }
             }
         } catch (RuntimeException e) {
             for (Actor actor : actors) {
@@ -298,6 +303,7 @@ public final class PaperPlaybackManager {
         private final String displayName;
         private final double anchorX, anchorY, anchorZ;
         private int frameIndex = -1;
+        private boolean started;
         private EquipmentPresetStore.Preset equipmentOverride;
 
         private Actor(MocapSceneStore.ActorSpec spec, MocapRecordingParser.Recording recording, Mannequin mannequin,
@@ -326,9 +332,19 @@ public final class PaperPlaybackManager {
         }
 
         private void update(int tick) {
+            if (tick < spec.delayTicks()) return;
             List<MocapRecordingParser.Frame> frames = recording.frames();
+            int recordingTick = tick - spec.delayTicks();
+            if (!started) {
+                mannequin.setInvisible(false);
+                mannequin.setCustomNameVisible(true);
+                frameIndex = 0;
+                started = true;
+                if (!frames.isEmpty()) apply(frames.get(0), true);
+                return;
+            }
             int previousFrameIndex = frameIndex;
-            while (frameIndex + 1 < frames.size() && frames.get(frameIndex + 1).tick() <= tick) frameIndex++;
+            while (frameIndex + 1 < frames.size() && frames.get(frameIndex + 1).tick() <= recordingTick) frameIndex++;
             if (frameIndex < 0) frameIndex = 0;
             // Frames are snapshots of state changes. Avoid teleporting and reapplying equipment
             // on every server tick when the current keyframe has not changed.
@@ -337,10 +353,19 @@ public final class PaperPlaybackManager {
 
         private void resetForLoop() {
             List<MocapRecordingParser.Frame> frames = recording.frames();
-            if (frames.isEmpty()) {
+            if (spec.delayTicks() > 0) {
+                started = false;
                 frameIndex = -1;
+                mannequin.setInvisible(true);
+                mannequin.setCustomNameVisible(false);
                 return;
             }
+            if (frames.isEmpty()) {
+                frameIndex = -1;
+                started = false;
+                return;
+            }
+            started = true;
             frameIndex = 0;
             apply(frames.get(0), true);
         }
