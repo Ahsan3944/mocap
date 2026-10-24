@@ -1,0 +1,1 @@
+Gradle wrapper distribution configuration is in gradle/wrapper/gradle-wrapper.properties. Use Java 25 to build.
