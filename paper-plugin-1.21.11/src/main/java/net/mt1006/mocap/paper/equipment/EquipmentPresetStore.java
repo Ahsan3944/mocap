@@ -100,6 +100,16 @@ public final class EquipmentPresetStore {
         e.setBoots(copy(preset.boots()));
     }
 
+    /** Applies only armor slots. Main-hand/off-hand items remain untouched on the mannequin. */
+    public static void applyArmorOnly(Mannequin mannequin, Preset preset) {
+        EntityEquipment e = mannequin.getEquipment();
+        if (e == null) return;
+        e.setHelmet(copy(preset.helmet()));
+        e.setChestplate(copy(preset.chestplate()));
+        e.setLeggings(copy(preset.leggings()));
+        e.setBoots(copy(preset.boots()));
+    }
+
     /** Removes only the four armor slots; hands and held tools remain untouched. */
     public static void removeArmor(Mannequin mannequin) {
         EntityEquipment e = mannequin.getEquipment();
