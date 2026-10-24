@@ -131,41 +131,41 @@ def main():
 
  rel="common/src/main/java/net/mt1006/mocap/utils/ProfileUtils.java"
  s=rd(target,rel)
- s=rep(s,"import java.util.UUID;\\n","import java.util.UUID;\\nimport java.util.Set;\\nimport java.util.concurrent.ArrayBlockingQueue;\\nimport java.util.concurrent.ConcurrentHashMap;\\nimport java.util.concurrent.RejectedExecutionException;\\nimport java.util.concurrent.ThreadPoolExecutor;\\nimport java.util.concurrent.TimeUnit;\\n",rel)
- s=s.replace("import java.util.concurrent.ExecutorService;\\n","").replace("import java.util.concurrent.Executors;\\n","")
- fields="""\\tprivate static final Set<String> prefetchInFlight = ConcurrentHashMap.newKeySet();
-\\tprivate static final int MAX_QUEUED_PROFILE_PREFETCHES = 256;
-\\tprivate static final ThreadPoolExecutor prefetchExecutor = new ThreadPoolExecutor(
-\\t\\t\\t2, 2, 0L, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(MAX_QUEUED_PROFILE_PREFETCHES), runnable ->
-\\t{
-\\t\\tThread thread = new Thread(runnable, "Mocap profile prefetch");
-\\t\\tthread.setDaemon(true);
-\\t\\treturn thread;
-\\t}, new ThreadPoolExecutor.AbortPolicy());
+ s=rep(s,"import java.util.UUID;\n","import java.util.UUID;\nimport java.util.Set;\nimport java.util.concurrent.ArrayBlockingQueue;\nimport java.util.concurrent.ConcurrentHashMap;\nimport java.util.concurrent.RejectedExecutionException;\nimport java.util.concurrent.ThreadPoolExecutor;\nimport java.util.concurrent.TimeUnit;\n",rel)
+ s=s.replace("import java.util.concurrent.ExecutorService;\n","").replace("import java.util.concurrent.Executors;\n","")
+ fields="""\tprivate static final Set<String> prefetchInFlight = ConcurrentHashMap.newKeySet();
+\tprivate static final int MAX_QUEUED_PROFILE_PREFETCHES = 256;
+\tprivate static final ThreadPoolExecutor prefetchExecutor = new ThreadPoolExecutor(
+\t\t\t2, 2, 0L, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(MAX_QUEUED_PROFILE_PREFETCHES), runnable ->
+\t{
+\t\tThread thread = new Thread(runnable, "Mocap profile prefetch");
+\t\tthread.setDaemon(true);
+\t\treturn thread;
+\t}, new ThreadPoolExecutor.AbortPolicy());
 """
- s=rep(s,"public class ProfileUtils\\n{\\n","public class ProfileUtils\\n{\\n"+fields,rel)
+ s=rep(s,"public class ProfileUtils\n{\n","public class ProfileUtils\n{\n"+fields,rel)
  prefetch="""public static void prefetchProfileAsync(MinecraftServer server, String name)
-\\t{
-\\t\\tif (name == null || !StringUtil.isValidPlayerName(name)) { return; }
-\\t\\tif (getFromCache(MocapPlayerNameHandling.IGNORE_AND_REPLACE_CASING, name, true) != null) { return; }
-\\t\\tString key = name.toLowerCase(Locale.ROOT);
-\\t\\tif (!prefetchInFlight.add(key)) { return; }
-\\t\\ttry
-\\t\\t{
-\\t\\t\\tprefetchExecutor.execute(() ->
-\\t\\t\\t{
-\\t\\t\\t\\ttry { getProfile(server, MocapPlayerNameHandling.IGNORE_AND_REPLACE_CASING, name, true); }
-\\t\\t\\t\\tcatch (RuntimeException e) { net.mt1006.mocap.MocapMod.LOGGER.debug("Background profile prefetch failed for {}", name, e); }
-\\t\\t\\t\\tfinally { prefetchInFlight.remove(key); }
-\\t\\t\\t});
-\\t\\t}
-\\t\\tcatch (RejectedExecutionException e)
-\\t\\t{
-\\t\\t\\tprefetchInFlight.remove(key);
-\\t\\t\\tnet.mt1006.mocap.MocapMod.LOGGER.debug("Profile prefetch queue is full; deferring lookup for {}", name);
-\\t\\t}
-\\t}"""
- s=rep(s,"public static GameProfile createGameProfile(",prefetch+"\\n\\n\\tpublic static GameProfile createGameProfile(",rel)
+\t{
+\t\tif (name == null || !StringUtil.isValidPlayerName(name)) { return; }
+\t\tif (getFromCache(MocapPlayerNameHandling.IGNORE_AND_REPLACE_CASING, name, true) != null) { return; }
+\t\tString key = name.toLowerCase(Locale.ROOT);
+\t\tif (!prefetchInFlight.add(key)) { return; }
+\t\ttry
+\t\t{
+\t\t\tprefetchExecutor.execute(() ->
+\t\t\t{
+\t\t\t\ttry { getProfile(server, MocapPlayerNameHandling.IGNORE_AND_REPLACE_CASING, name, true); }
+\t\t\t\tcatch (RuntimeException e) { net.mt1006.mocap.MocapMod.LOGGER.debug("Background profile prefetch failed for {}", name, e); }
+\t\t\t\tfinally { prefetchInFlight.remove(key); }
+\t\t\t});
+\t\t}
+\t\tcatch (RejectedExecutionException e)
+\t\t{
+\t\t\tprefetchInFlight.remove(key);
+\t\t\tnet.mt1006.mocap.MocapMod.LOGGER.debug("Profile prefetch queue is full; deferring lookup for {}", name);
+\t\t}
+\t}"""
+ s=rep(s,"public static GameProfile createGameProfile(",prefetch+"\n\n\tpublic static GameProfile createGameProfile(",rel)
  wr(target,rel,s)
 
  rel="common/src/main/java/net/mt1006/mocap/events/PlayerConnectionEvent.java"
