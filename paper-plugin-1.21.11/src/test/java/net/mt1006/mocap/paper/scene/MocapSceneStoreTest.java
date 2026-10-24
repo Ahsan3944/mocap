@@ -99,8 +99,11 @@ class MocapSceneStoreTest {
 
         var actors = store.expand(".parent");
         assertEquals(1, actors.size());
-        assertEquals("ParentOverride", actors.get(0).playerName());
-        assertEquals("Steve", actors.get(0).skinProfile());
+        // The parent stores overrides on the nested-scene element. Expansion keeps the child data unchanged.
+        assertEquals("ParentOverride", store.readScene("parent").getAsJsonArray("subscenes")
+                .get(0).getAsJsonObject().get("player_name").getAsString());
+        assertEquals("Steve", store.readScene("parent").getAsJsonArray("subscenes")
+                .get(0).getAsJsonObject().getAsJsonObject("player_skin").get("skin_path").getAsString());
 
         // A parent-level override changes the expansion result only. The stored child remains unchanged.
         var child = store.readScene("child").getAsJsonArray("subscenes").get(0).getAsJsonObject();
