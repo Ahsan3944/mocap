@@ -21,7 +21,9 @@ All commands except help require permission mocap.admin (default: operator).
 - /mocap formation <scene> <recording> <rows> <columns> <spacing>
 - /mocap copy_scene <source> <target>
 - /mocap equipment save <group> <name>; list [group]; delete <group> <name>
-- /mocap equipment apply <id> <group> <name>; randomize <id> <group>
+- /mocap equipment apply <id> <group> <name> — applies a persistent preset override to all actors in the playback.
+- /mocap equipment apply_element <id> <actor-index> <group> <name> — applies a persistent override to one actor (1-based index in expanded playback order).
+- /mocap equipment randomize <id> <group> — assigns a persistent random preset to each actor.
 
 Scenes use the existing Mocap JSON structure and .mcmocap_scene extension; recordings use .mcmocap_rec. Random names/profile names persist in scene JSON and are not re-rolled on replay. Random assignment and individual renaming reject nested scene elements.
 
