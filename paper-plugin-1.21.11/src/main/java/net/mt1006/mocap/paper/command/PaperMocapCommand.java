@@ -635,7 +635,7 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.GRAY + "Purpose: " + ChatColor.WHITE + "Mocap recording/scene file playback");
         sender.sendMessage(ChatColor.GRAY + "Maintainer: " + ChatColor.YELLOW + "UltraOP");
         sender.sendMessage(ChatColor.GRAY + "Platform: " + ChatColor.WHITE + "Paper Plugin • Java 21");
-        sender.sendMessage(ChatColor.GRAY + "Recording capture: " + ChatColor.GREEN + "Position/rotation only (Paper limited mode)");
+        sender.sendMessage(ChatColor.GRAY + "Recording capture: " + ChatColor.GREEN + "Position, rotation, supported poses and recorded player name");
         sender.sendMessage(ChatColor.GRAY + "Actors: " + ChatColor.WHITE + "Paper Mannequin API (not fake players)");
         sender.sendMessage(ChatColor.GRAY + "Help: " + ChatColor.GREEN + "/mocap help");
         sender.sendMessage(ChatColor.GRAY + "Limits: " + ChatColor.WHITE + "See PORT_REPORT.md in the source package.");
@@ -644,27 +644,32 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
 
     private static void help(CommandSender sender) {
         sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "           ULTRAOP MOCAP HELP");
+        sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "             ULTRAOP • MOCAP");
         sender.sendMessage(ChatColor.AQUA + "ROOT " + ChatColor.WHITE + "/mocap <group> <action>");
         sender.sendMessage(ChatColor.YELLOW + "RECORDING");
-        sender.sendMessage(ChatColor.WHITE + "/mocap recording <start|stop|save|discard|list>");
-        sender.sendMessage(ChatColor.GRAY + "  Captures player position/rotation only; block/chat/inventory actions are not recorded.");
+        sender.sendMessage(ChatColor.WHITE + "/mocap recording <start|stop|discard|save|list>");
+        sender.sendMessage(ChatColor.GRAY + "  Captures position, rotation, supported poses and original player name.");
+        sender.sendMessage(ChatColor.GRAY + "  Block edits, chat, inventory and combat actions are not recorded by this Paper port.");
         sender.sendMessage(ChatColor.YELLOW + "SAVED RECORDINGS");
-        sender.sendMessage(ChatColor.WHITE + "/mocap recordings <list|info <name>>");
-        sender.sendMessage(ChatColor.YELLOW + "SCENES");
-        sender.sendMessage(ChatColor.WHITE + "/mocap scene <list|info <name>|copy <source> <target>|play <scene> [loop]>");
-        sender.sendMessage(ChatColor.WHITE + "/mocap scene <customize|formation> ...");
-        sender.sendMessage(ChatColor.YELLOW + "PLAYBACK");
-        sender.sendMessage(ChatColor.WHITE + "/mocap playback <start <recording|scene> [loop]|list|stop <id>|stopall>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap recordings <list|info|copy|rename|remove> ...");
+        sender.sendMessage(ChatColor.YELLOW + "SCENES (UPSTREAM GROUP)");
+        sender.sendMessage(ChatColor.WHITE + "/mocap scenes add <scene_name>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap scenes add_to <scene> <recording|.nested_scene> [delay] [player_name] [skin_source skin_value]");
+        sender.sendMessage(ChatColor.WHITE + "/mocap scenes <copy|rename|remove|remove_from|modify|info|list> ...");
+        sender.sendMessage(ChatColor.WHITE + "/mocap scenes play <recording|.scene> [loop]");
+        sender.sendMessage(ChatColor.YELLOW + "PLAYING");
+        sender.sendMessage(ChatColor.WHITE + "/mocap playing start <recording|.scene> [player_name] [skin_from_player <profile>]");
+        sender.sendMessage(ChatColor.WHITE + "/mocap playing <stop <id>|stop_all|list>");
+        sender.sendMessage(ChatColor.YELLOW + "PAPER PLAYBACK ADD-ONS");
         sender.sendMessage(ChatColor.WHITE + "/mocap playback <freeze|unfreeze|end-freeze> <id>");
         sender.sendMessage(ChatColor.WHITE + "/mocap playback <low-lag <id> <on|off>|nametags <id> <hide|show>>");
-        sender.sendMessage(ChatColor.YELLOW + "CUSTOMIZE");
+        sender.sendMessage(ChatColor.YELLOW + "CUSTOMIZE / FORMATION");
         sender.sendMessage(ChatColor.WHITE + "/mocap customize <names|skins|name|equipment> ...");
-        sender.sendMessage(ChatColor.YELLOW + "OTHER");
         sender.sendMessage(ChatColor.WHITE + "/mocap formation add <scene> <recording> <rows> <columns> <spacing>");
         sender.sendMessage(ChatColor.WHITE + "/mocap copy scene <source> <target>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap settings");
         sender.sendMessage(ChatColor.WHITE + "/mocap info");
-        sender.sendMessage(ChatColor.GRAY + "Use /mocap <group> help for group-specific usage.");
+        sender.sendMessage(ChatColor.GRAY + "Use TAB or /mocap <group> help for group-specific arguments.");
         sender.sendMessage(ChatColor.GRAY + "Management permission: " + ChatColor.YELLOW + "mocap.admin");
         sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     }
