@@ -221,6 +221,76 @@ class MocapSceneStoreTest {
     }
 
     @Test
+    void formationGroupCreatesSeparateGroupMetadataAndAnchoredScene() throws Exception {
+        MocapSceneStore store = new MocapSceneStore(tempDir);
+        Path recordingDir = tempDir.resolve("mocap_files").resolve("recordings");
+        var encoder = new net.mt1006.mocap.paper.recording.MocapRecordingEncoder(10, 64, 20, 0, 0, "Warrior");
+        Files.write(recordingDir.resolve("warrior_take.mcmocap_rec"), encoder.toByteArray());
+        org.bukkit.Location anchor = new org.bukkit.Location(null, 100, 70, 200);
+
+        store.createFormationGroup("battle_group", "warrior_take", 2, 3, 1.5, 4.0, anchor);
+
+        assertEquals(List.of("battle_group"), store.listFormationGroups());
+        assertEquals("battle_group", store.formationGroupScene("battle_group"));
+        assertEquals(6, store.readScene("battle_group").getAsJsonArray("subscenes").size());
+        assertEquals(1, store.expand(".battle_group").size() == 6 ? 1 : 0);
+        var group = store.formationGroupInfo("battle_group");
+        assertEquals("warrior_take", group.get("source_recording").getAsString());
+        assertEquals(2, group.get("rows").getAsInt());
+        assertEquals(3, group.get("columns").getAsInt());
+
+        var actorSpecs = store.expand(".battle_group");
+        var recording = new net.mt1006.mocap.paper.playback.MocapRecordingParser().parse(actorSpecs.get(0).recordingPath());
+        var frame = recording.frames().get(0);
+        org.bukkit.Location firstActor = new org.bukkit.Location(null, frame.x(), frame.y(), frame.z(), frame.yaw(), frame.pitch());
+        for (var transform : actorSpecs.get(0).transforms()) firstActor = transform.apply(firstActor, recording.startX(), recording.startY(), recording.startZ());
+        assertEquals(100.0, firstActor.getX(), 0.001);
+        assertEquals(70.0, firstActor.getY(), 0.001);
+        assertEquals(200.0, firstActor.getZ(), 0.001);
+        // With yaw 0, the second column is 1.5 blocks to the actor's right (negative X).
+        var secondSpec = actorSpecs.get(1);
+        org.bukkit.Location secondActor = new org.bukkit.Location(null, frame.x(), frame.y(), frame.z(), frame.yaw(), frame.pitch());
+        for (var transform : secondSpec.transforms()) secondActor = transform.apply(secondActor, recording.startX(), recording.startY(), recording.startZ());
+        assertEquals(98.5, secondActor.getX(), 0.001);
+        assertEquals(200.0, secondActor.getZ(), 0.001);
+    }
+
+    @Test
+    void movingSceneChangesGlobalTranslationWithoutChangingFormationOffsets() throws Exception {
+        MocapSceneStore store = new MocapSceneStore(tempDir);
+        Path recordingDir = tempDir.resolve("mocap_files").resolve("recordings");
+        var encoder = new net.mt1006.mocap.paper.recording.MocapRecordingEncoder(10, 64, 20, 0, 0, "Warrior");
+        Files.write(recordingDir.resolve("warrior.mcmocap_rec"), encoder.toByteArray());
+        store.createFormationGroup("move_test", "warrior", 2, 2, 2.0, 5.0,
+                new org.bukkit.Location(null, 100, 70, 200));
+
+        store.moveSceneTo("move_test", new org.bukkit.Location(null, -40, 80, 75));
+
+        var actors = store.expand(".move_test");
+        var recording = new net.mt1006.mocap.paper.playback.MocapRecordingParser().parse(actors.get(0).recordingPath());
+        var frame = recording.frames().get(0);
+        org.bukkit.Location moved = new org.bukkit.Location(null, frame.x(), frame.y(), frame.z(), frame.yaw(), frame.pitch());
+        for (var transform : actors.get(0).transforms()) moved = transform.apply(moved, recording.startX(), recording.startY(), recording.startZ());
+        assertEquals(-40.0, moved.getX(), 0.001);
+        assertEquals(80.0, moved.getY(), 0.001);
+        assertEquals(75.0, moved.getZ(), 0.001);
+        assertEquals(-42.0, sceneActorLocation(store, actors.get(1)).getX(), 0.001);
+        var group = store.formationGroupInfo("move_test");
+        var anchor = group.getAsJsonArray("anchor");
+        assertEquals(-40.0, anchor.get(0).getAsDouble(), 0.001);
+        assertEquals(80.0, anchor.get(1).getAsDouble(), 0.001);
+        assertEquals(75.0, anchor.get(2).getAsDouble(), 0.001);
+    }
+
+    private org.bukkit.Location sceneActorLocation(MocapSceneStore store, MocapSceneStore.ActorSpec actor) throws Exception {
+        var recording = new net.mt1006.mocap.paper.playback.MocapRecordingParser().parse(actor.recordingPath());
+        var frame = recording.frames().get(0);
+        org.bukkit.Location location = new org.bukkit.Location(null, frame.x(), frame.y(), frame.z(), frame.yaw(), frame.pitch());
+        for (var transform : actor.transforms()) location = transform.apply(location, recording.startX(), recording.startY(), recording.startZ());
+        return location;
+    }
+
+    @Test
     void sceneCopyNeverOverwritesExistingTarget() throws Exception {
         Path scenesDir = tempDir.resolve("mocap_files").resolve("scenes");
         Files.createDirectories(scenesDir);
