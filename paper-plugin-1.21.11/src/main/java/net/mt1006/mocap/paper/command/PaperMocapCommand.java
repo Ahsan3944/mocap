@@ -5,6 +5,7 @@ import net.mt1006.mocap.paper.equipment.EquipmentPresetStore;
 import net.mt1006.mocap.paper.playback.PaperPlaybackManager;
 import net.mt1006.mocap.paper.scene.MocapSceneStore;
 import net.mt1006.mocap.paper.recording.PaperRecordingManager;
+import net.mt1006.mocap.paper.settings.PaperSettingsStore;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.World;
@@ -28,15 +29,17 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
     private final EquipmentPresetStore equipment;
     private final PaperPlaybackManager playbacks;
     private final PaperRecordingManager recordings;
+    private final PaperSettingsStore settings;
 
     public PaperMocapCommand(MocapPaperPlugin plugin, MocapSceneStore scenes,
                              EquipmentPresetStore equipment, PaperPlaybackManager playbacks,
-                             PaperRecordingManager recordings) {
+                             PaperRecordingManager recordings, PaperSettingsStore settings) {
         this.plugin = plugin;
         this.scenes = scenes;
         this.equipment = equipment;
         this.playbacks = playbacks;
         this.recordings = recordings;
+        this.settings = settings;
     }
 
     @Override
@@ -456,12 +459,108 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     }
 
-    private void settingsCommand(CommandSender sender, String[] args) {
-        sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "MOCAP SETTINGS");
-        sender.sendMessage(ChatColor.GRAY + "The full upstream setting registry is not ported into this Paper plugin.");
-        sender.sendMessage(ChatColor.WHITE + "Current Paper limits: Java 21, movement/rotation/pose recording, max 500 active mannequin actors.");
-        sender.sendMessage(ChatColor.GRAY + "Playback controls: /mocap playback low-lag, /mocap playback nametags.");
-        sender.sendMessage(ChatColor.GRAY + "Full upstream settings remain available in the original Mocap mod.");
+    private void settingsCommand(CommandSender sender, String[] args) throws IOException {
+        if (args.length == 1 || eq(args[1], "help")) {
+            settingsHelp(sender);
+            return;
+        }
+        String action = args[1].toLowerCase(Locale.ROOT);
+        if (action.equals("list")) {
+            if (args.length == 2) {
+                sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "MOCAP SETTINGS GROUPS");
+                sender.sendMessage(ChatColor.WHITE + "recording, playback, advanced");
+                sender.sendMessage(ChatColor.GRAY + "Use /mocap settings <group> to list that group's original field names.");
+                return;
+            }
+            if (args.length == 3) {
+                listSettingsGroup(sender, args[2]);
+                return;
+            }
+            usage(sender, "/mocap settings list [<recording|playback|advanced>]");
+            return;
+        }
+        if (action.equals("info")) {
+            if (args.length == 2) { settingsHelp(sender); return; }
+            if (args.length == 3) { listSettingsGroup(sender, args[2]); return; }
+            if (args.length == 4) { showSettingInfo(sender, args[2], args[3]); return; }
+            usage(sender, "/mocap settings info <group> [<setting>]");
+            return;
+        }
+        if (!settings.groups().contains(action)) {
+            sender.sendMessage(ChatColor.RED + "Unknown settings group: " + args[1]);
+            settingsHelp(sender);
+            return;
+        }
+        if (args.length == 2) {
+            listSettingsGroup(sender, action);
+            return;
+        }
+        if (args.length == 3) {
+            showSettingInfo(sender, action, args[2]);
+            return;
+        }
+        if (args.length == 4) {
+            PaperSettingsStore.Definition definition = settings.definition(action, args[2]);
+            String oldValue = settings.currentValue(definition);
+            String newValue = settings.set(action, args[2], args[3]);
+            sender.sendMessage(ChatColor.GREEN + "Updated settings " + action + "." + args[2]
+                    + ChatColor.GRAY + ": " + oldValue + ChatColor.WHITE + " -> " + ChatColor.AQUA + newValue);
+            sender.sendMessage(ChatColor.GRAY + "Saved to plugins/MocapPaper/settings.yml. New playbacks use the new value.");
+            return;
+        }
+        usage(sender, "/mocap settings <recording|playback|advanced> <setting> [<new_value>]");
+    }
+
+    private void listSettingsGroup(CommandSender sender, String group) throws IOException {
+        if (!settings.groups().contains(group.toLowerCase(Locale.ROOT))) {
+            sender.sendMessage(ChatColor.RED + "Unknown settings group: " + group);
+            sender.sendMessage("Available groups: " + String.join(", ", settings.groups()));
+            return;
+        }
+        sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "MOCAP SETTINGS • " + group.toUpperCase(Locale.ROOT));
+        for (PaperSettingsStore.Definition def : settings.fields(group)) {
+            String state = def.supported() ? ChatColor.GREEN + "SUPPORTED" : ChatColor.RED + "UPSTREAM-ONLY";
+            sender.sendMessage(ChatColor.WHITE + def.name() + ChatColor.GRAY + " = " + settings.currentValue(def)
+                    + ChatColor.DARK_GRAY + " [" + state + ChatColor.DARK_GRAY + "]");
+        }
+        sender.sendMessage(ChatColor.GRAY + "Read a setting: /mocap settings " + group + " <setting>");
+        sender.sendMessage(ChatColor.GRAY + "Set a supported setting: /mocap settings " + group + " <setting> <value>");
+    }
+
+    private void showSettingInfo(CommandSender sender, String group, String name) {
+        PaperSettingsStore.Definition def = settings.definition(group, name);
+        if (def == null) {
+            sender.sendMessage(ChatColor.RED + "Unknown setting: " + group + "." + name);
+            sender.sendMessage("Use /mocap settings " + group + " to list valid names.");
+            return;
+        }
+        sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "SETTING • " + def.group() + "." + def.name());
+        sender.sendMessage(ChatColor.GRAY + "Type: " + ChatColor.WHITE + def.type());
+        sender.sendMessage(ChatColor.GRAY + "Default: " + ChatColor.WHITE + def.defaultValue());
+        sender.sendMessage(ChatColor.GRAY + "Current: " + (def.supported() ? ChatColor.GREEN : ChatColor.RED) + settings.currentValue(def));
+        sender.sendMessage(ChatColor.GRAY + "Description: " + ChatColor.WHITE + def.description());
+        if (def.supported()) {
+            if (def.type() == PaperSettingsStore.Type.BOOLEAN) {
+                sender.sendMessage(ChatColor.GRAY + "Usage: " + ChatColor.WHITE + "/mocap settings " + group + " " + name + " <true|false>");
+            } else if (def.type() == PaperSettingsStore.Type.DOUBLE) {
+                sender.sendMessage(ChatColor.GRAY + "Usage: " + ChatColor.WHITE + "/mocap settings " + group + " " + name + " <number>");
+            }
+        } else {
+            sender.sendMessage(ChatColor.RED + "This original Mocap setting is not implemented by the Paper port and cannot be changed here.");
+        }
+    }
+
+    private static void settingsHelp(CommandSender sender) {
+        sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "          MOCAP SETTINGS");
+        sender.sendMessage(ChatColor.WHITE + "/mocap settings list [<group>]");
+        sender.sendMessage(ChatColor.WHITE + "/mocap settings <recording|playback|advanced>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap settings <group> <setting>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap settings <group> <setting> <value>");
+        sender.sendMessage(ChatColor.GRAY + "Original groups/field names are listed. Only fields marked SUPPORTED affect this Paper plugin.");
+        sender.sendMessage(ChatColor.GRAY + "Supported now: playback_speed (0.1–4.0), can_push_entities (true/false), invulnerable_playback (true/false).");
+        sender.sendMessage(ChatColor.RED + "Other upstream settings are shown but cannot be changed until their behavior is ported.");
+        sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     }
 
     private void customizeCommand(CommandSender sender, String[] args) throws IOException {
