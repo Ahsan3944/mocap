@@ -181,30 +181,143 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
 
     private void sceneCommand(CommandSender sender, String[] args) throws IOException {
         if (args.length == 1 || eq(args[1], "help")) {
-            sender.sendMessage("Scene: list | info <name> | copy <source> <target> | customize ... | formation ... | play <name>");
+            scenesHelp(sender);
             return;
         }
-        switch (args[1].toLowerCase(Locale.ROOT)) {
-            case "list" -> listScenes(sender);
-            case "info" -> {
-                if (args.length < 3) { usage(sender, "/mocap scene info <name>"); return; }
-                var scene = scenes.readScene(args[2]);
-                sender.sendMessage("Scene: ." + MocapSceneStore.normalizeSceneName(args[2]));
-                sender.sendMessage("Direct elements: " + scene.getAsJsonArray("subscenes").size());
+        String action = args[1].toLowerCase(Locale.ROOT);
+        switch (action) {
+            case "add", "create" -> {
+                if (args.length < 3) { usage(sender, "/mocap scenes add <scene_name>"); return; }
+                scenes.createScene(args[2]);
+                sender.sendMessage(ChatColor.GREEN + "Created scene ." + MocapSceneStore.normalizeSceneName(args[2]) + ".");
             }
+            case "add_to", "addto", "add-to" -> addToScene(sender, args);
             case "copy" -> {
-                if (args.length < 4) { usage(sender, "/mocap scene copy <source> <target>"); return; }
+                if (args.length < 4) { usage(sender, "/mocap scenes copy <source> <target>"); return; }
                 scenes.copyScene(args[2], args[3]);
-                sender.sendMessage("Copied scene " + args[2] + " to ." + MocapSceneStore.normalizeSceneName(args[3]) + ".");
+                sender.sendMessage(ChatColor.GREEN + "Copied scene " + args[2] + " to ." + MocapSceneStore.normalizeSceneName(args[3]) + ".");
+            }
+            case "rename" -> {
+                if (args.length < 4) { usage(sender, "/mocap scenes rename <old_name> <new_name>"); return; }
+                scenes.renameScene(args[2], args[3]);
+                sender.sendMessage(ChatColor.GREEN + "Renamed scene " + args[2] + " to ." + MocapSceneStore.normalizeSceneName(args[3]) + ".");
+            }
+            case "remove", "delete" -> {
+                if (args.length < 3) { usage(sender, "/mocap scenes remove <scene_name>"); return; }
+                scenes.removeScene(args[2]);
+                sender.sendMessage(ChatColor.GREEN + "Removed scene ." + MocapSceneStore.normalizeSceneName(args[2]) + ".");
+            }
+            case "remove_from", "remove-from" -> {
+                if (args.length < 4) { usage(sender, "/mocap scenes remove_from <scene_name> <element_index[-name]>"); return; }
+                scenes.removeSceneElement(args[2], args[3]);
+                sender.sendMessage(ChatColor.GREEN + "Removed element " + args[3] + " from scene ." + MocapSceneStore.normalizeSceneName(args[2]) + ".");
+            }
+            case "modify" -> {
+                if (args.length < 5) {
+                    sender.sendMessage(ChatColor.YELLOW + "Usage: /mocap scenes modify <scene> <element> <property> <values...>");
+                    sender.sendMessage(ChatColor.GRAY + "Properties: subscene_name, player_name, player_skin, time, transformations.");
+                    return;
+                }
+                String[] values = Arrays.copyOfRange(args, 5, args.length);
+                scenes.modifySceneElement(args[2], args[3], args[4], values);
+                sender.sendMessage(ChatColor.GREEN + "Updated element " + args[3] + " in scene ." + MocapSceneStore.normalizeSceneName(args[2]) + ".");
+            }
+            case "info" -> sceneInfo(sender, args);
+            case "list" -> {
+                if (args.length < 3) listScenes(sender);
+                else listSceneElements(sender, args[2]);
             }
             case "customize" -> customizeCommand(sender, shift(args, 1, "customize"));
             case "formation" -> formationCommand(sender, shift(args, 1, "formation"));
             case "play" -> {
-                if (args.length < 3) { usage(sender, "/mocap scene play <scene> [loop]"); return; }
+                if (args.length < 3) { usage(sender, "/mocap scenes play <scene> [loop]"); return; }
                 startPlayback(sender, args[2], args.length > 3 && eq(args[3], "loop"), false);
             }
-            default -> { sender.sendMessage("Unknown scene action: " + args[1]); sender.sendMessage("Usage: /mocap scene <list|info|copy|customize|formation|play>"); }
+            default -> {
+                sender.sendMessage(ChatColor.RED + "Unknown scenes action: " + args[1]);
+                scenesHelp(sender);
+            }
         }
+    }
+
+    private void addToScene(CommandSender sender, String[] args) throws IOException {
+        if (args.length < 4) {
+            usage(sender, "/mocap scenes add_to <scene> <recording|.nested_scene> [<wait_on_start_seconds>] [<player_name>] [<skin_from_player|skin_from_file|skin_from_mineskin> <skin_value>]");
+            return;
+        }
+        double waitOnStart = 0.0;
+        if (args.length >= 5) {
+            try { waitOnStart = Double.parseDouble(args[4]); }
+            catch (NumberFormatException e) { throw new IOException("wait_on_start must be a number of seconds (for example 0 or 2.5).", e); }
+        }
+        String playerName = args.length >= 6 ? args[5] : null;
+        String skinSource = args.length >= 7 ? args[6] : "default";
+        String skinPath = args.length >= 8 ? args[7] : null;
+        scenes.addSceneElement(args[2], args[3], waitOnStart, playerName, skinSource, skinPath);
+        sender.sendMessage(ChatColor.GREEN + "Added " + args[3] + " to scene ." + MocapSceneStore.normalizeSceneName(args[2]) + ".");
+        if (waitOnStart > 0) sender.sendMessage(ChatColor.GRAY + "Start delay: " + waitOnStart + " seconds.");
+        if (playerName != null && !playerName.equals("-")) sender.sendMessage(ChatColor.GRAY + "Display player name: " + playerName);
+    }
+
+    private void sceneInfo(CommandSender sender, String[] args) throws IOException {
+        if (args.length < 3) { usage(sender, "/mocap scenes info <scene_name> [<element_index[-name]>]"); return; }
+        var scene = scenes.readScene(args[2]);
+        var entries = scene.getAsJsonArray("subscenes");
+        String name = "." + MocapSceneStore.normalizeSceneName(args[2]);
+        sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "MOCAP SCENE INFO");
+        sender.sendMessage(ChatColor.GRAY + "Name: " + ChatColor.WHITE + name);
+        sender.sendMessage(ChatColor.GRAY + "Format: " + ChatColor.AQUA + scene.get("version").getAsInt());
+        sender.sendMessage(ChatColor.GRAY + "Elements: " + ChatColor.AQUA + entries.size());
+        sender.sendMessage(ChatColor.GRAY + "File size: " + ChatColor.AQUA + Files.size(scenes.scenePath(args[2])) + " bytes");
+        if (args.length >= 4) {
+            int index = parseElementIndex(args[3]);
+            if (index < 1 || index > entries.size()) throw new IOException("Scene element index is out of range.");
+            var el = entries.get(index - 1).getAsJsonObject();
+            sender.sendMessage(ChatColor.YELLOW + "Element " + index + ChatColor.GRAY + " — " + ChatColor.WHITE + el.get("name").getAsString());
+            sender.sendMessage(ChatColor.GRAY + "Player name: " + ChatColor.WHITE + (el.has("player_name") ? el.get("player_name").getAsString() : "(inherited/default)"));
+            sender.sendMessage(ChatColor.GRAY + "Player skin: " + ChatColor.WHITE + (el.has("player_skin") ? el.getAsJsonObject("player_skin").toString() : "default"));
+            sender.sendMessage(ChatColor.GRAY + "Time: " + ChatColor.WHITE + (el.has("time") ? el.getAsJsonObject("time").toString() : "default"));
+            sender.sendMessage(ChatColor.GRAY + "Transformations: " + ChatColor.WHITE + (el.has("transformations") ? el.getAsJsonObject("transformations").toString() : "default"));
+        }
+    }
+
+    private void listSceneElements(CommandSender sender, String sceneName) throws IOException {
+        var scene = scenes.readScene(sceneName);
+        var entries = scene.getAsJsonArray("subscenes");
+        sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "SCENE ELEMENTS " + ChatColor.GRAY + "." + MocapSceneStore.normalizeSceneName(sceneName));
+        if (entries.isEmpty()) {
+            sender.sendMessage(ChatColor.GRAY + "This scene is empty. Add one with /mocap scenes add_to " + MocapSceneStore.normalizeSceneName(sceneName) + " <recording>.");
+            return;
+        }
+        for (int i = 0; i < entries.size(); i++) {
+            var el = entries.get(i).getAsJsonObject();
+            String playerName = el.has("player_name") ? el.get("player_name").getAsString() : "inherited/default";
+            sender.sendMessage(ChatColor.GRAY + String.format(Locale.ROOT, "%03d", i + 1) + ChatColor.WHITE + " " + el.get("name").getAsString()
+                    + ChatColor.DARK_GRAY + " (" + playerName + ")");
+        }
+        sender.sendMessage(ChatColor.GRAY + "Remove: /mocap scenes remove_from " + MocapSceneStore.normalizeSceneName(sceneName) + " <element_index[-name]>");
+    }
+
+    private static int parseElementIndex(String raw) throws IOException {
+        int dash = raw.indexOf('-');
+        String digits = dash >= 0 ? raw.substring(0, dash) : raw;
+        try { return Integer.parseInt(digits); }
+        catch (NumberFormatException e) { throw new IOException("Scene element must use a numeric 1-based index.", e); }
+    }
+
+    private static void scenesHelp(CommandSender sender) {
+        sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "           MOCAP SCENES");
+        sender.sendMessage(ChatColor.WHITE + "/mocap scenes add <scene_name>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap scenes add_to <scene> <recording|.nested_scene> [<wait_on_start_seconds>] [<player_name>] [<skin_source> <skin_value>]");
+        sender.sendMessage(ChatColor.WHITE + "/mocap scenes <copy|rename> <source> <target>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap scenes <remove <scene>|remove_from <scene> <element>>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap scenes modify <scene> <element> <property> <values...>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap scenes <list [scene]|info <scene> [element]>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap scenes play <recording|.scene> [loop]");
+        sender.sendMessage(ChatColor.GRAY + "Modifiers: player_name, player_skin, time, transformations.");
+        sender.sendMessage(ChatColor.GRAY + "Use /mocap scenes <action> then press TAB to explore arguments.");
+        sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     }
 
     private void playbackCommand(CommandSender sender, String[] args) throws IOException {
