@@ -194,6 +194,33 @@ class MocapSceneStoreTest {
     }
 
     @Test
+    void formationSupportsIndependentSideAndFrontBackGaps() throws Exception {
+        MocapSceneStore store = new MocapSceneStore(tempDir);
+        store.createScene("wide_formation");
+        Path recordingDir = tempDir.resolve("mocap_files").resolve("recordings");
+        var encoder = new net.mt1006.mocap.paper.recording.MocapRecordingEncoder(10, 64, 10, 0, 0, "UltraOP");
+        Files.write(recordingDir.resolve("line.mcmocap_rec"), encoder.toByteArray());
+
+        store.addFormation("wide_formation", "line", 2, 3, 1.5, 4.0);
+        var entries = store.readScene("wide_formation").getAsJsonArray("subscenes");
+        assertEquals(6, entries.size());
+        var first = entries.get(0).getAsJsonObject().getAsJsonObject("transformations").getAsJsonArray("offset");
+        var secondColumn = entries.get(1).getAsJsonObject().getAsJsonObject("transformations").getAsJsonArray("offset");
+        var thirdColumn = entries.get(2).getAsJsonObject().getAsJsonObject("transformations").getAsJsonArray("offset");
+        var nextRow = entries.get(3).getAsJsonObject().getAsJsonObject("transformations").getAsJsonArray("offset");
+        var nextRowSecondColumn = entries.get(4).getAsJsonObject().getAsJsonObject("transformations").getAsJsonArray("offset");
+
+        assertEquals(0.0, first.get(0).getAsDouble(), 0.0001);
+        assertEquals(0.0, first.get(2).getAsDouble(), 0.0001);
+        assertEquals(-1.5, secondColumn.get(0).getAsDouble(), 0.0001);
+        assertEquals(0.0, secondColumn.get(2).getAsDouble(), 0.0001);
+        assertEquals(-3.0, thirdColumn.get(0).getAsDouble(), 0.0001);
+        assertEquals(-4.0, nextRow.get(2).getAsDouble(), 0.0001);
+        assertEquals(-1.5, nextRowSecondColumn.get(0).getAsDouble(), 0.0001);
+        assertEquals(-4.0, nextRowSecondColumn.get(2).getAsDouble(), 0.0001);
+    }
+
+    @Test
     void sceneCopyNeverOverwritesExistingTarget() throws Exception {
         Path scenesDir = tempDir.resolve("mocap_files").resolve("scenes");
         Files.createDirectories(scenesDir);
