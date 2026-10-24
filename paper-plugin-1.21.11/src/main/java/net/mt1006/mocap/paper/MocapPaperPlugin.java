@@ -3,6 +3,7 @@ package net.mt1006.mocap.paper;
 import net.mt1006.mocap.paper.command.PaperMocapCommand;
 import net.mt1006.mocap.paper.equipment.EquipmentPresetStore;
 import net.mt1006.mocap.paper.playback.PaperPlaybackManager;
+import net.mt1006.mocap.paper.recording.PaperRecordingManager;
 import net.mt1006.mocap.paper.scene.MocapSceneStore;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
@@ -13,6 +14,7 @@ public final class MocapPaperPlugin extends JavaPlugin {
     private MocapSceneStore scenes;
     private EquipmentPresetStore equipment;
     private PaperPlaybackManager playbacks;
+    private PaperRecordingManager recordings;
 
     @Override
     public void onEnable() {
@@ -21,9 +23,10 @@ public final class MocapPaperPlugin extends JavaPlugin {
             if (rootWorld == null) throw new IOException("Paper has no loaded world; cannot locate mocap_files.");
             scenes = new MocapSceneStore(rootWorld.getWorldFolder().toPath());
             equipment = new EquipmentPresetStore(getDataFolder().toPath());
+            recordings = new PaperRecordingManager(this, rootWorld.getWorldFolder().toPath());
             playbacks = new PaperPlaybackManager(this, scenes, equipment);
 
-            PaperMocapCommand command = new PaperMocapCommand(this, scenes, equipment, playbacks);
+            PaperMocapCommand command = new PaperMocapCommand(this, scenes, equipment, playbacks, recordings);
             if (getCommand("mocap") == null) throw new IOException("plugin.yml is missing the mocap command declaration.");
             getCommand("mocap").setExecutor(command);
             getCommand("mocap").setTabCompleter(command);
@@ -36,10 +39,12 @@ public final class MocapPaperPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (recordings != null) recordings.shutdown();
         if (playbacks != null) playbacks.shutdown();
     }
 
     public MocapSceneStore scenes() { return scenes; }
     public EquipmentPresetStore equipment() { return equipment; }
     public PaperPlaybackManager playbacks() { return playbacks; }
+    public PaperRecordingManager recordings() { return recordings; }
 }
