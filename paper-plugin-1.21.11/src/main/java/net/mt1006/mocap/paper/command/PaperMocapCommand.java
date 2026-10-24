@@ -872,61 +872,132 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             return;
         }
         String action = args[1].toLowerCase(Locale.ROOT);
-        if (action.equals("tool")) {
-            if (!(sender instanceof Player player)) {
-                sender.sendMessage(ChatColor.RED + "Only a player can receive and use the placement tool.");
-                return;
+        switch (action) {
+            case "tool" -> {
+                if (!(sender instanceof Player player)) {
+                    sender.sendMessage(ChatColor.RED + "Only a player can receive and use the placement tool.");
+                    return;
+                }
+                plugin.givePlacementTool(player);
             }
-            plugin.givePlacementTool(player);
-            return;
-        }
-        if (action.equals("paste")) {
-            if (args.length < 3) {
-                usage(sender, "/mocap formation paste <recording-name|.scene-name> [loop]");
-                sender.sendMessage(ChatColor.GRAY + "First use /mocap formation tool, right-click the target block, then paste the selected recording or complete scene.");
-                return;
+            case "create" -> {
+                if (!(sender instanceof Player player)) {
+                    sender.sendMessage(ChatColor.RED + "Formation Group creation requires the in-game placement tool.");
+                    return;
+                }
+                if (args.length != 8) {
+                    usage(sender, "/mocap formation create <group-name> <source-recording> <rows> <columns> <column-gap> <row-gap>");
+                    sender.sendMessage(ChatColor.GRAY + "Select a target with /mocap formation tool first. The source-recording is the saved movement of the player you want to clone.");
+                    return;
+                }
+                Location anchor = plugin.placementAnchor(player);
+                if (anchor == null) {
+                    throw new IOException("No placement anchor is selected. Run /mocap formation tool and right-click the target block first.");
+                }
+                int rows = parseBoundedInteger(args[4], "rows", 1, MocapSceneStore.MAX_FORMATION_ADDITIONS);
+                int columns = parseBoundedInteger(args[5], "columns", 1, MocapSceneStore.MAX_FORMATION_ADDITIONS);
+                long actorCount = (long) rows * columns;
+                if (actorCount > MocapSceneStore.MAX_FORMATION_ADDITIONS) {
+                    throw new IOException("Rows × columns is " + actorCount + "; maximum is "
+                            + MocapSceneStore.MAX_FORMATION_ADDITIONS + " actors. Reduce rows or columns.");
+                }
+                double columnGap = parseBoundedDecimal(args[6], "column-gap", 0.0, 128.0);
+                double rowGap = parseBoundedDecimal(args[7], "row-gap", 0.0, 128.0);
+                scenes.createFormationGroup(args[2], args[3], rows, columns, columnGap, rowGap, anchor);
+                sender.sendMessage(ChatColor.GREEN + "Created Formation Group " + ChatColor.AQUA + args[2]
+                        + ChatColor.GREEN + " and its Scene ." + ChatColor.AQUA + args[2] + ChatColor.GREEN + ".");
+                sender.sendMessage(ChatColor.GRAY + "Source recording/player: " + ChatColor.WHITE + args[3]
+                        + ChatColor.GRAY + " | Actors: " + ChatColor.AQUA + actorCount
+                        + ChatColor.GRAY + " | Rows behind: " + ChatColor.AQUA + rows
+                        + ChatColor.GRAY + " | Columns right: " + ChatColor.AQUA + columns
+                        + ChatColor.GRAY + " | Side gap: " + ChatColor.AQUA + columnGap
+                        + ChatColor.GRAY + " | Front/back gap: " + ChatColor.AQUA + rowGap);
+                sender.sendMessage(ChatColor.GRAY + "The first actor is anchored at the selected location. Customize names/skins on scene ."
+                        + args[2] + " with /mocap customize names|skins.");
             }
-            pasteAtAnchor(sender, args[2], args.length >= 4 && args[3].equalsIgnoreCase("loop"));
-            return;
+            case "play" -> {
+                if (args.length < 3) { usage(sender, "/mocap formation play <group-name> [loop]"); return; }
+                String scene = scenes.formationGroupScene(args[2]);
+                var info = scenes.formationGroupInfo(args[2]);
+                String worldName = info.has("anchor_world") ? info.get("anchor_world").getAsString() : "";
+                World targetWorld = worldName == null || worldName.isBlank() ? null : Bukkit.getWorld(worldName);
+                if (targetWorld == null) {
+                    if (!worldName.isBlank()) throw new IOException("The Formation Group anchor world '" + worldName + "' is not loaded. Load that world before playing this group.");
+                    targetWorld = sender instanceof Player p ? p.getWorld() : defaultWorld();
+                }
+                boolean loop = args.length >= 4 && eq(args[3], "loop");
+                String playbackId = playbacks.start("." + scene, targetWorld, loop, null);
+                sender.sendMessage(ChatColor.GREEN + "Started Formation Group " + ChatColor.AQUA + args[2]
+                        + ChatColor.GREEN + " at its saved anchor. Playback ID: " + ChatColor.YELLOW + playbackId
+                        + (loop ? ChatColor.GREEN + " (looping)" : ""));
+            }
+            case "list" -> {
+                List<String> groups = scenes.listFormationGroups();
+                sender.sendMessage(groups.isEmpty() ? ChatColor.YELLOW + "No Formation Groups saved. Use /mocap formation create ..."
+                        : ChatColor.GOLD + "FORMATION GROUPS (" + groups.size() + "): " + String.join(", ", groups));
+            }
+            case "info" -> {
+                if (args.length < 3) { usage(sender, "/mocap formation info <group-name>"); return; }
+                var group = scenes.formationGroupInfo(args[2]);
+                sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "FORMATION GROUP • " + args[2]);
+                sender.sendMessage(ChatColor.GRAY + "Scene: " + ChatColor.WHITE + "." + group.get("scene_name").getAsString());
+                sender.sendMessage(ChatColor.GRAY + "Source recording/player: " + ChatColor.WHITE + group.get("source_recording").getAsString());
+                sender.sendMessage(ChatColor.GRAY + "Rows × columns: " + ChatColor.AQUA + group.get("rows").getAsInt() + " × " + group.get("columns").getAsInt());
+                sender.sendMessage(ChatColor.GRAY + "Column gap: " + ChatColor.AQUA + group.get("column_gap").getAsDouble()
+                        + ChatColor.GRAY + " | Row gap: " + ChatColor.AQUA + group.get("row_gap").getAsDouble());
+                sender.sendMessage(ChatColor.GRAY + "Anchor world: " + ChatColor.WHITE + group.get("anchor_world").getAsString()
+                        + ChatColor.GRAY + " | Anchor: " + ChatColor.AQUA + group.get("anchor"));
+            }
+            case "delete" -> {
+                if (args.length < 3) { usage(sender, "/mocap formation delete <group-name>"); return; }
+                scenes.deleteFormationGroup(args[2]);
+                sender.sendMessage(ChatColor.GREEN + "Deleted Formation Group " + args[2] + " and its backing Scene.");
+            }
+            case "add" -> {
+                // Backwards-compatible legacy helper: adds the grid to an existing scene.
+                if (args.length != 7 && args.length != 8) {
+                    usage(sender, "/mocap formation add <scene-name> <recording-name> <rows> <columns> <spacing>");
+                    sender.sendMessage(ChatColor.GRAY + "Legacy equal spacing. For new named groups use /mocap formation create <group> <recording> <rows> <columns> <column-gap> <row-gap>.");
+                    return;
+                }
+                String sceneName = args[2];
+                String recordingName = args[3];
+                int rows = parseBoundedInteger(args[4], "rows", 1, MocapSceneStore.MAX_FORMATION_ADDITIONS);
+                int columns = parseBoundedInteger(args[5], "columns", 1, MocapSceneStore.MAX_FORMATION_ADDITIONS);
+                long actorCount = (long) rows * columns;
+                if (actorCount > MocapSceneStore.MAX_FORMATION_ADDITIONS) {
+                    throw new IOException("Rows × columns is " + actorCount + "; maximum is " + MocapSceneStore.MAX_FORMATION_ADDITIONS + " actors.");
+                }
+                double columnGap = parseBoundedDecimal(args[6], "column-gap", 0.0, 128.0);
+                double rowGap = args.length == 8 ? parseBoundedDecimal(args[7], "row-gap", 0.0, 128.0) : columnGap;
+                scenes.addFormation(sceneName, recordingName, rows, columns, columnGap, rowGap);
+                sender.sendMessage(ChatColor.GREEN + "Formation grid added to existing scene ." + MocapSceneStore.normalizeSceneName(sceneName) + ".");
+                sender.sendMessage(ChatColor.GRAY + "Rows: " + rows + " | Columns: " + columns + " | Side gap: " + columnGap + " | Front/back gap: " + rowGap + " | Actors added: " + actorCount);
+            }
+            default -> {
+                sender.sendMessage(ChatColor.RED + "Unknown formation action: " + action);
+                formationHelp(sender);
+            }
         }
-        if (!action.equals("add")) {
-            sender.sendMessage(ChatColor.RED + "Unknown formation action: " + action);
-            formationHelp(sender);
-            return;
-        }
-        if (args.length < 7 || args.length > 8) {
-            sender.sendMessage(ChatColor.YELLOW + "Usage: /mocap formation add <scene-name> <recording-name> <rows:1-1000> <columns:1-1000> <column-gap:0-128> <row-gap:0-128>");
-            sender.sendMessage(ChatColor.GRAY + "For backwards compatibility, the old single-gap form with only <spacing-blocks> remains supported.");
-            return;
-        }
+    }
 
-        String sceneName = args[2];
-        String recordingName = args[3];
-        int rows = parseBoundedInteger(args[4], "rows", 1, MocapSceneStore.MAX_FORMATION_ADDITIONS);
-        int columns = parseBoundedInteger(args[5], "columns", 1, MocapSceneStore.MAX_FORMATION_ADDITIONS);
-        long actorCount = (long) rows * columns;
-        if (actorCount > MocapSceneStore.MAX_FORMATION_ADDITIONS) {
-            throw new IOException("Formation rows × columns is " + actorCount + "; maximum is "
-                    + MocapSceneStore.MAX_FORMATION_ADDITIONS + " actors. Reduce rows or columns.");
-        }
-        double columnGap;
-        double rowGap;
-        if (args.length == 7) {
-            // Keep existing scripts valid: old one-gap syntax controls both dimensions.
-            columnGap = parseBoundedDecimal(args[6], "spacing-blocks", 0.0, 128.0);
-            rowGap = columnGap;
-        } else {
-            columnGap = parseBoundedDecimal(args[6], "column-gap", 0.0, 128.0);
-            rowGap = parseBoundedDecimal(args[7], "row-gap", 0.0, 128.0);
-        }
-        scenes.addFormation(sceneName, recordingName, rows, columns, columnGap, rowGap);
-        sender.sendMessage(ChatColor.GREEN + "Formation added to scene ." + MocapSceneStore.normalizeSceneName(sceneName) + ".");
-        sender.sendMessage(ChatColor.GRAY + "Source recording: " + ChatColor.WHITE + recordingName
-                + ChatColor.GRAY + " | Rows (behind): " + ChatColor.AQUA + rows
-                + ChatColor.GRAY + " | Columns (right): " + ChatColor.AQUA + columns
-                + ChatColor.GRAY + " | Column gap: " + ChatColor.AQUA + columnGap + " blocks"
-                + ChatColor.GRAY + " | Row gap: " + ChatColor.AQUA + rowGap + " blocks"
-                + ChatColor.GRAY + " | Actors added: " + ChatColor.GREEN + actorCount);
+    private static void formationHelp(CommandSender sender) {
+        sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        sender.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "       FORMATION GROUP BUILDER");
+        sender.sendMessage(ChatColor.WHITE + "/mocap formation tool");
+        sender.sendMessage(ChatColor.WHITE + "/mocap formation create <group-name> <source-recording> <rows> <columns> <column-gap> <row-gap>");
+        sender.sendMessage(ChatColor.WHITE + "/mocap formation <list|info <group>|play <group> [loop]|delete <group>>");
+        sender.sendMessage(ChatColor.YELLOW + "CREATE WORKFLOW");
+        sender.sendMessage(ChatColor.GRAY + "1. Run /mocap formation tool and right-click the block where the first actor should stand.");
+        sender.sendMessage(ChatColor.GRAY + "2. Choose a saved recording of the player you want to use as the formation source.");
+        sender.sendMessage(ChatColor.GRAY + "3. Create a named group. A separate Formation Group metadata record and a backing Scene with the same name are created automatically.");
+        sender.sendMessage(ChatColor.GRAY + "4. The first actor stays at the selected anchor; columns grow to the source actor's right and rows grow behind the source's starting yaw.");
+        sender.sendMessage(ChatColor.GRAY + "5. Play later with /mocap formation play <group-name>. Name/skin assignments can be saved on its backing scene using /mocap customize names|skins.");
+        sender.sendMessage(ChatColor.YELLOW + "GAPS AND LIMITS");
+        sender.sendMessage(ChatColor.GRAY + "column-gap: side-to-side distance. row-gap: front-to-back distance. Both accept 0–128 blocks.");
+        sender.sendMessage(ChatColor.GRAY + "Rows × columns are limited to 1,000 actors per group; a scene is limited to 5,000 elements.");
+        sender.sendMessage(ChatColor.GRAY + "Legacy: /mocap formation add <scene> <recording> <rows> <columns> <spacing> [row-gap].");
+        sender.sendMessage(ChatColor.DARK_GRAY + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     }
 
     private void pasteCommand(CommandSender sender, String[] args) throws IOException {
