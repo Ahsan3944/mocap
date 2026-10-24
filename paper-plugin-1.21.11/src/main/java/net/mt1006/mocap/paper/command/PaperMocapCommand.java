@@ -1132,7 +1132,11 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
                     case "save" -> equipmentPresetSuggestions(args[base + 2], prefix, true);
                     case "delete" -> equipmentPresetSuggestions(args[base + 2], prefix, false);
                     case "apply" -> equipmentGroupSuggestions(prefix, false);
-                    case "apply-element" -> filter(playbacks.actorIndexes(args[base + 2]), prefix);
+                    case "apply-element" -> {
+                        List<String> indexes = playbacks.actorIndexes(args[base + 2]);
+                        yield indexes.isEmpty() && (prefix == null || prefix.isBlank())
+                                ? List.of("<actor-index:use-playback-list>") : filter(indexes, prefix);
+                    }
                     case "randomize" -> equipmentGroupSuggestions(prefix, false);
                     default -> List.of();
                 };
@@ -1174,9 +1178,13 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             if (allowNewGroup && matches.isEmpty() && "<new-group-name>".startsWith(prefix.toLowerCase(Locale.ROOT))) {
                 matches.add("<new-group-name>");
             }
+            if (matches.isEmpty() && (prefix == null || prefix.isBlank())) {
+                matches.add(allowNewGroup ? "<new-group-name>" : "<no-saved-groups-save-first>");
+            }
             return matches.stream().distinct().toList();
         } catch (IOException ignored) {
-            return allowNewGroup && (prefix == null || prefix.isBlank()) ? List.of("<new-group-name>") : List.of();
+            return (prefix == null || prefix.isBlank())
+                    ? List.of(allowNewGroup ? "<new-group-name>" : "<no-saved-groups-save-first>") : List.of();
         }
     }
 
@@ -1187,9 +1195,13 @@ public final class PaperMocapCommand implements CommandExecutor, TabCompleter {
             if (allowNewPreset && matches.isEmpty() && "<preset-name>".startsWith(prefix.toLowerCase(Locale.ROOT))) {
                 matches.add("<preset-name>");
             }
+            if (matches.isEmpty() && (prefix == null || prefix.isBlank())) {
+                matches.add(allowNewPreset ? "<preset-name>" : "<no-presets-save-first>");
+            }
             return matches.stream().distinct().toList();
         } catch (IOException ignored) {
-            return allowNewPreset && (prefix == null || prefix.isBlank()) ? List.of("<preset-name>") : List.of();
+            return (prefix == null || prefix.isBlank())
+                    ? List.of(allowNewPreset ? "<preset-name>" : "<no-presets-save-first>") : List.of();
         }
     }
 
